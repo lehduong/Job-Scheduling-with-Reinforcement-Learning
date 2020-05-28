@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+ex/
+ex_eval/
+trained_models/
+.DS_Store
