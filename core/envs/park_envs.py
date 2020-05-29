@@ -20,7 +20,7 @@ from baselines.common.vec_env.vec_normalize import \
 PARK_ENV_LIST = ['spark', 'spark_sim',
                  'load_balance']
 
-def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=None):
+def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=None, args=None):
     def _thunk():
         if env_id not in PARK_ENV_LIST:
             raise ValueError("Unsupported environment, expect the environment to be one of "
@@ -32,8 +32,16 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
             env = TimeLimit(env, max_episode_steps)
             # adding information to env for computing return
             env = TimeLimitMask(env)
+        
+        # if using load balance, clip and normalize the observation with this wrapper
+        if env_id == 'load_balance':
+            env = ProcessLoadBalanceObservation(env, args.job_size_norm_factor, args.highest_server_obs, args.highest_job_obs)
 
-        #NOTICE: all environments used same random seed to repeat the input-process
+        # normalize reward
+        if args is not None:
+            env = RewardNormalize(env, args.reward_norm_factor)
+
+        #IMPORTANT: all environments used same random seed to repeat the input-process
         env.seed(seed)
 
         if log_dir is not None:
@@ -54,9 +62,10 @@ def make_vec_envs(env_name,
                   device,
                   allow_early_resets,
                   num_frame_stack=None,
-                  max_episode_steps=None):
+                  max_episode_steps=None,
+                  args=None):
     envs = [
-            make_env(env_name, seed, i, log_dir, allow_early_resets, max_episode_steps)
+            make_env(env_name, seed, i, log_dir, allow_early_resets, max_episode_steps, args=args)
             for i in range(num_processes)
     ]
 
@@ -66,13 +75,7 @@ def make_vec_envs(env_name,
         envs = DummyVecEnv(envs)
 
     envs = VecPyTorch(envs, device)
-    #envs = SyncRandomSeed(envs)
     return envs
-
-class MyShmemVecEnv(ShmemVecEnv):
-    def seed(self, seed):
-        for pipe in self.parent_pipes:
-            pipe.send(('seed', seed))
 
 # Checks whether done was caused my timit limits or not
 class TimeLimitMask(gym.Wrapper):
@@ -85,6 +88,42 @@ class TimeLimitMask(gym.Wrapper):
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
+
+
+class ProcessLoadBalanceObservation(gym.ObservationWrapper):
+    """
+        Normalize and clip the observation of LoadBalance environment
+        :param job_size_norm_factor: float - divide job_size by this factor
+        :param highest_server_obs: float - clip the server (in observation) having load higher than this value
+        :param highest_job_obs: float - clip the job (in observation) having size greater than this value
+    """
+    def __init__(self, env, job_size_norm_factor, highest_server_obs, highest_job_obs):
+        super().__init__(env)
+        self.job_size_norm_factor = job_size_norm_factor
+        self.highest_server_obs = highest_server_obs
+        self.highest_job_obs = highest_job_obs
+
+        # compute clip threshold
+        num_server = len(env.servers)
+        self.threshold = np.array([self.highest_server_obs]*num_server+[self.highest_job_obs])
+
+    def observation(self, observation):
+        # normalized
+        observation = observation/self.job_size_norm_factor
+        return np.minimum(observation, self.threshold) 
+
+
+class RewardNormalize(gym.RewardWrapper):
+    """
+        Divide the reward by a fixed value
+    """
+    def __init__(self, env, norm_factor):
+        super().__init__(env)
+        self.norm_factor = norm_factor 
+
+    def reward(self, reward):
+        return reward/self.norm_factor
+
 
 # Can be used to test recurrent policies for Reacher-v2
 class MaskGoal(gym.ObservationWrapper):
@@ -148,25 +187,6 @@ class VecPyTorch(VecEnvWrapper):
         reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
         return obs, reward, done, info
 
-# Reset all environments and set them to same seed for 
-# learning input-driven baseline with metalearning
-class SyncRandomSeed(VecEnvWrapper):
-    def __init__(self, venv):
-        """
-            Set same random seed for all environment when reset
-                \ use when leveraging metalearning to learn the input-dependent baseline
-                \ This must be the outermost wrapper for VecEnv
-        """
-        super(SyncRandomSeed, self).__init__(venv)
-
-    def reset(self, seed):
-        self.venv.unwrapped.seed(seed) 
-        obs = self.venv.reset()
-        return obs
-    
-    def step_wait(self):
-        obs, reward, done, info = self.venv.step_wait()
-        return obs, reward, done, info
 
 class VecNormalize(VecNormalize_):
     def __init__(self, *args, **kwargs):

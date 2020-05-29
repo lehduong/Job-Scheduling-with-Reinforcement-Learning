@@ -64,7 +64,7 @@ def get_args():
     parser.add_argument(
         '--num-steps',
         type=int,
-        default=20,
+        default=1000,
         help='number of forward steps in A2C (default: 20)')
     parser.add_argument(
         '--ppo-epoch',
@@ -121,7 +121,7 @@ def get_args():
     parser.add_argument(
         '--use-proper-time-limits',
         action='store_true',
-        default=True,
+        default=False,
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--max-episode-steps',
