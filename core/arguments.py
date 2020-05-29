@@ -59,7 +59,7 @@ def get_args():
     parser.add_argument(
         '--num-processes',
         type=int,
-        default=16,
+        default=4,
         help='how many training CPU processes to use (default: 16)')
     parser.add_argument(
         '--num-steps',
@@ -121,16 +121,16 @@ def get_args():
     parser.add_argument(
         '--use-proper-time-limits',
         action='store_true',
-        default=False,
+        default=True,
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--max-episode-steps',
-        default=1000,
+        default=100,
         type=int,
         help='maximum number of steps per episode of environment (default: 1000)')
     parser.add_argument(
         '--num-frame-stack',
-        default=4,
+        default=1,
         help='number of observation that will be grouped together (default: 4)')
     parser.add_argument(
         '--recurrent-policy',

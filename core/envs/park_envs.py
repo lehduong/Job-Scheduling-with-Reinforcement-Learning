@@ -8,7 +8,7 @@ import park
 import gym
 
 from park.spaces.box import Box
-from baselines import bench
+from baselines import bench, logger
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind
 from baselines.common.vec_env import VecEnvWrapper
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
@@ -33,24 +33,14 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
             # adding information to env for computing return
             env = TimeLimitMask(env)
 
-        env.seed(seed+rank)
+        #NOTICE: all environments used same random seed to repeat the input-process
+        env.seed(seed)
 
         if log_dir is not None:
             env = bench.Monitor(
                     env,
                     os.path.join(log_dir, str(rank)),
                     allow_early_resets=allow_early_resets)
-
-        obs_shape = env.observation_space.shape
-        
-        if len(obs_shape) == 3:
-            raise NotImplementedError(
-                "CNN models work only for atari,\n"
-                "please use a custom wrapper for a custom pixel input env.\n"
-                "See wrap_deepmind for an example.")
-        
-        if len(obs_shape) == 3 and obs_shape[2] in [1,3]:
-            env = TransposeImage(env, op=[2, 0, 1])
 
         return env 
 
@@ -76,8 +66,13 @@ def make_vec_envs(env_name,
         envs = DummyVecEnv(envs)
 
     envs = VecPyTorch(envs, device)
-
+    #envs = SyncRandomSeed(envs)
     return envs
+
+class MyShmemVecEnv(ShmemVecEnv):
+    def seed(self, seed):
+        for pipe in self.parent_pipes:
+            pipe.send(('seed', seed))
 
 # Checks whether done was caused my timit limits or not
 class TimeLimitMask(gym.Wrapper):
@@ -90,7 +85,6 @@ class TimeLimitMask(gym.Wrapper):
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
-
 
 # Can be used to test recurrent policies for Reacher-v2
 class MaskGoal(gym.ObservationWrapper):
@@ -154,6 +148,25 @@ class VecPyTorch(VecEnvWrapper):
         reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
         return obs, reward, done, info
 
+# Reset all environments and set them to same seed for 
+# learning input-driven baseline with metalearning
+class SyncRandomSeed(VecEnvWrapper):
+    def __init__(self, venv):
+        """
+            Set same random seed for all environment when reset
+                \ use when leveraging metalearning to learn the input-dependent baseline
+                \ This must be the outermost wrapper for VecEnv
+        """
+        super(SyncRandomSeed, self).__init__(venv)
+
+    def reset(self, seed):
+        self.venv.unwrapped.seed(seed) 
+        obs = self.venv.reset()
+        return obs
+    
+    def step_wait(self):
+        obs, reward, done, info = self.venv.step_wait()
+        return obs, reward, done, info
 
 class VecNormalize(VecNormalize_):
     def __init__(self, *args, **kwargs):
