@@ -35,7 +35,7 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
         
         # if using load balance, clip and normalize the observation with this wrapper
         if env_id == 'load_balance':
-            env = ProcessLoadBalanceObservation(env, args.job_size_norm_factor, args.highest_server_obs, args.highest_job_obs)
+            env = ProcessLoadBalanceObservation(env, args.job_size_norm_factor, args.server_load_norm_factor, args.highest_server_obs, args.highest_job_obs)
 
         # normalize reward
         if args is not None:
@@ -97,19 +97,22 @@ class ProcessLoadBalanceObservation(gym.ObservationWrapper):
         :param highest_server_obs: float - clip the server (in observation) having load higher than this value
         :param highest_job_obs: float - clip the job (in observation) having size greater than this value
     """
-    def __init__(self, env, job_size_norm_factor, highest_server_obs, highest_job_obs):
+    def __init__(self, env, job_size_norm_factor, server_load_norm_factor, highest_server_obs, highest_job_obs):
         super().__init__(env)
         self.job_size_norm_factor = job_size_norm_factor
+        self.server_load_norm_factor = server_load_norm_factor
         self.highest_server_obs = highest_server_obs
         self.highest_job_obs = highest_job_obs
 
         # compute clip threshold
         num_server = len(env.servers)
         self.threshold = np.array([self.highest_server_obs]*num_server+[self.highest_job_obs])
+        # compute the normalize vector
+        self.norm_vec = np.array([self.server_load_norm_factor]*num_server+[self.job_size_norm_factor])
 
     def observation(self, observation):
         # normalized
-        observation = observation/self.job_size_norm_factor
+        observation = observation/self.norm_vec
         return np.minimum(observation, self.threshold) 
 
 
