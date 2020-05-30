@@ -125,7 +125,7 @@ def get_args():
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--max-episode-steps',
-        default=100,
+        default=1000,
         type=int,
         help='maximum number of steps per episode of environment (default: 1000)')
     parser.add_argument(

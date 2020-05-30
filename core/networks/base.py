@@ -91,3 +91,15 @@ class NNBase(nn.Module):
             hxs = hxs.squeeze(0)
 
         return x, hxs
+    
+    def init_weight(self, layer):
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), nn.init.calculate_gain('relu'))
+        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+            return init_(layer)
+        elif isinstance(layer, nn.BatchNorm2d):
+            layer.weight.data.fill_(1)
+            if hasattr(layer, 'bias'):
+                layer.bias.data.zero_()
+            return layer 
+
