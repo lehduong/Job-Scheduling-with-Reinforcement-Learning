@@ -1,7 +1,6 @@
-import torch 
-import numpy as np 
+import numpy as np
 from torch import nn 
-from .base import NNBase, Flatten
+from core.agents.models.base import NNBase
 from core.utils import init
 
 class MLPBase(NNBase):
@@ -20,9 +19,8 @@ class MLPBase(NNBase):
 
         self.critic = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
-
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
 
         self.train()
 
@@ -32,7 +30,7 @@ class MLPBase(NNBase):
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
-        hidden_critic = self.critic(x)
+        value =  self.critic(x)
         hidden_actor = self.actor(x)
 
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+        return value, hidden_actor, rnn_hxs

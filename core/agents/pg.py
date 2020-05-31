@@ -4,12 +4,12 @@ import torch.nn as nn
 
 from core.distributions import Bernoulli, Categorical, DiagGaussian
 from core.utils import init
-from core.networks import CNNBase, MLPBase
+from core.agents.models import CNNBase, MLPBase
 
 
-class PolicyGradientAgent(nn.Module):
+class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
-        super(PolicyGradientAgent, self).__init__()
+        super(Policy, self).__init__()
         # create base network for acting
         if base_kwargs is None:
             base_kwargs = {}

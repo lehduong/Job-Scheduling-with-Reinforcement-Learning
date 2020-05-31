@@ -1,6 +1,5 @@
-import torch 
-from torch import nn 
-from .base import NNBase, Flatten
+from torch import nn
+from core.agents.models.base import NNBase, Flatten
 from core.utils import init
 
 class BNCNN(NNBase):

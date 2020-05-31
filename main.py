@@ -8,9 +8,9 @@ import torch
 from core import algorithms, utils
 from core.arguments import get_args
 from core.envs import make_vec_envs
-from core.agents import PolicyGradientAgent
+from core.agents import Policy, MetaInputDependentPolicy
 from core.storage import RolloutStorage
-from core.networks import BNCNN
+from core.agents.models import BNCNN
 from evaluation import evaluate
 
 
@@ -39,7 +39,7 @@ def main():
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, True, args.num_frame_stack, args.max_episode_steps, args=args)
     
-    actor_critic = PolicyGradientAgent(
+    actor_critic = MetaInputDependentPolicy(
         envs.observation_space.shape,
         envs.action_space,
         base_kwargs={'recurrent': args.recurrent_policy})
@@ -69,6 +69,18 @@ def main():
     elif args.algo == 'acktr':
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
+    elif args.algo == 'inputDependentA2C':
+        agent = algorithms.MetaInputDependentA2C(
+            actor_critic,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            alpha=args.alpha,
+            max_grad_norm=args.max_grad_norm
+        )
+    else:
+        raise ValueError("Not Implemented algorithm...")
 
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
                               envs.observation_space.shape, envs.action_space,
