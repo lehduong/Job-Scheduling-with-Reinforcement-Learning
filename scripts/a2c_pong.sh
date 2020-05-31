@@ -1,1 +1,1 @@
-python main.py --env-name "PongNoFrameskip-v4" --num-steps 5
+python main.py --env-name "load_balance"

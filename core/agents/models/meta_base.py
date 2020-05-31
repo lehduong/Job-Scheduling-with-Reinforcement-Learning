@@ -20,7 +20,7 @@ class ActorMetaCritic(NNBase):
                 )
         self.critic = MetaNet(num_inputs, 1, hidden_size)
         
-    def forward(self, inputs, rnn_hxs, marks, state_dict=None):
+    def forward(self, inputs, rnn_hxs, masks, state_dict=None):
         x = inputs
         
         if self.is_recurrent:
@@ -31,7 +31,7 @@ class ActorMetaCritic(NNBase):
         
         return values, hidden_actor, rnn_hxs
 
-    def compute_critic_grad(self, inputs, rnn_hxs, marks, state_dict, gt, criterion):
+    def compute_critic_grad(self, inputs, rnn_hxs, masks, state_dict, gt, criterion):
         """
             Forward with fast weight and return grad
         """
@@ -85,9 +85,9 @@ class MetaNet(nn.Module):
 
 def linear_block(num_inputs, num_outputs):
     linear = nn.Sequential(
-        nn.Linear(num_input, num_outputs),
+        nn.Linear(num_inputs, num_outputs),
         nn.BatchNorm1d(num_outputs),
-        nn.Relu()
+        nn.ReLU()
         )
 
     return linear
