@@ -1,7 +1,6 @@
-import torch 
-import numpy as np 
+import numpy as np
 from torch import nn 
-from .base import NNBase, Flatten
+from core.agents.models.base import NNBase
 from core.utils import init
 
 class MLPBase(NNBase):

@@ -1,1 +1,1 @@
-from .pg import PolicyGradientAgent
+from .pg import Policy
