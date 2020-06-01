@@ -1,14 +1,25 @@
 import numpy as np
 import torch
+import copy
 
 from core import utils
 from core.envs import make_vec_envs
-
+from core.agents.heuristic.load_balance import LeastWorkAgent, ShortestProcessingTimeAgent
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
     eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
                               None, eval_log_dir, device, True, train=False, args=env_args)
+
+    # benchmark heuristic
+    # least_work
+    leastwork_env = make_vec_envs(env_name, seed + num_processes, num_processes,
+                              None, eval_log_dir, device, True, train=False, args=env_args)
+    benchmark_heuristic(LeastWorkAgent(), leastwork_env)
+    # shortest processing time
+    spt_env = make_vec_envs(env_name, seed + num_processes, num_processes,
+                              None, eval_log_dir, device, True, train=False, args=env_args)
+    benchmark_heuristic(ShortestProcessingTimeAgent(), spt_env)
 
     eval_episode_rewards = []
 
@@ -40,4 +51,23 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
     eval_envs.close()
 
     print(" Evaluation using {} episodes: mean reward {:.5f}\n".format(
+        len(eval_episode_rewards), np.mean(eval_episode_rewards)))
+
+def benchmark_heuristic(agent, eval_envs):
+    obs = eval_envs.reset() 
+    eval_episode_rewards = []
+
+    while len(eval_episode_rewards) < 10:
+        action = agent.act(obs)
+        # Obser reward and next obs
+
+        obs, _, done, infos = eval_envs.step(action)
+
+        for info in infos:
+            if 'episode' in info.keys():
+                eval_episode_rewards.append(info['episode']['r'])
+
+    eval_envs.close()
+
+    print(" Evaluation" + agent.__class__.__name__ + " using {} episodes: mean reward {:.5f}\n".format(
         len(eval_episode_rewards), np.mean(eval_episode_rewards)))

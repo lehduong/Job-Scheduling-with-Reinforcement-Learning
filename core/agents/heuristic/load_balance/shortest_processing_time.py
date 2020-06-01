@@ -1,22 +1,17 @@
 import numpy as np
+import torch
 
 
 class ShortestProcessingTimeAgent(object):
-    def __init__(self):
-        pass
+    def __init__(self, service_rates=[0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05]):
+        self.service_rates = torch.tensor(service_rates).reshape(1, -1)
 
-    def get_action(self, state):
-        workers, _, _ = state
+    def act(self, states):
+        """
+            Give actions for given states
+            :param states: torch tensor of shape num_envs x (num_servers+1)
+            :return: np.array of shape num_env x 1
+        """
+        processing_time = states[:, :-1]/self.service_rates
 
-        min_time_idx = None
-        min_time = np.inf
-
-        for i in range(len(workers)):
-            worker = workers[i]
-            work = np.sum([j.size for j in worker.queue])
-            remain_time = work / worker.service_rate
-            if remain_time < min_time:
-                min_time_idx = i
-                min_time = remain_time
-
-        return min_time_idx
+        return torch.argmin(processing_time, dim=1, keepdims=True)
