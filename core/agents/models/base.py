@@ -71,6 +71,7 @@ class NNBase(nn.Module):
 
             hxs = hxs.unsqueeze(0)
             outputs = []
+            self.gru.flatten_parameters()
             for i in range(len(has_zeros) - 1):
                 # We can now process steps that don't have any zeros in masks together!
                 # This is much faster
