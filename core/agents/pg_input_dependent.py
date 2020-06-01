@@ -8,16 +8,16 @@ from .pg import Policy
 
 
 class MetaInputDependentPolicy(Policy):
-    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, meta_lr=2e-3, meta_criterion=MSELoss):
+    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=MSELoss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
         # TODO: add args for optimizer
-        self.lr = meta_lr
-        self.meta_criterion = meta_criterion()
+        self.lr = adapt_lr
+        self.adapt_criterion = adapt_criterion()
 
     @property
     def criterion(self):
-        return self.meta_criterion 
+        return self.adapt_criterion 
 
     def train_and_predict_meta_critic(self, task_inputs, task_labels, meta_inputs, meta_labels):
         """
@@ -39,7 +39,7 @@ class MetaInputDependentPolicy(Policy):
         # Adapt to new task
         for step in range(self.num_inner_steps):
             task_preds, _, _ = fast_net(task_obs, task_rnn_hxs, task_masks)
-            task_loss = self.meta_criterion(task_preds, task_labels)
+            task_loss = self.adapt_criterion(task_preds, task_labels)
 
             # update the fast-adapted network
             task_optimizer.zero_grad()
@@ -49,7 +49,7 @@ class MetaInputDependentPolicy(Policy):
         # compute meta grad 
         meta_obs, meta_rnn_hxs, meta_masks = meta_inputs
         meta_preds, _, _ = fast_net(meta_obs, meta_rnn_hxs, meta_masks)
-        meta_loss = self.meta_criterion(meta_preds, meta_labels)
+        meta_loss = self.adapt_criterion(meta_preds, meta_labels)
         grads = torch.autograd.grad(meta_loss, fast_net.critic.parameters())
         meta_grads = {name:g for ((name, _), g) in zip(fast_net.critic.named_parameters(), grads)}
         

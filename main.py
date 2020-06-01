@@ -39,10 +39,19 @@ def main():
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, True, args.num_frame_stack, args.max_episode_steps, args=args)
     
-    actor_critic = MetaInputDependentPolicy(
-        envs.observation_space.shape,
-        envs.action_space,
-        base_kwargs={'recurrent': args.recurrent_policy})
+    if args.algo == 'idp_a2c':
+        actor_critic = MetaInputDependentPolicy(
+            envs.observation_space.shape,
+            envs.action_space,
+            base_kwargs={'recurrent': args.recurrent_policy},
+            num_inner_steps=args.num_inner_steps,
+            adapt_lr=args.adapt_lr)
+    else:
+        actor_critic = Policy(
+            envs.observation_space.shape,
+            envs.action_space,
+            base_kwargs={'recurrent': args.recurrent_policy})
+
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -69,7 +78,7 @@ def main():
     elif args.algo == 'acktr':
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
-    elif args.algo == 'inputDependentA2C':
+    elif args.algo == 'idp_a2c':
         agent = algorithms.MetaInputDependentA2C(
             actor_critic,
             args.value_loss_coef,

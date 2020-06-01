@@ -6,7 +6,7 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
-        '--algo', default='inputDependentA2C', help='algorithm to use: a2c | ppo | acktr')
+        '--algo', default='idp_a2c', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
@@ -135,13 +135,23 @@ def get_args():
     parser.add_argument(
         '--recurrent-policy',
         action='store_true',
-        default=True,
+        default=False,
         help='use a recurrent policy')
     parser.add_argument(
         '--use-linear-lr-decay',
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
+    
+    # META INPUT-DEPENDENT BASELINE
+    parser.add_argument(
+        '--num-inner-steps',
+        default=4,
+        help='number of gradient steps for adapting to new input sequences (default: 4)')
+    parser.add_argument(
+        '--adapt-lr',
+        default=2e-3,
+        help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
 
     # LOAD BALANCE ENVIRONMENT
     parser.add_argument(
@@ -169,9 +179,9 @@ def get_args():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr', 'inputDependentA2C']
+    assert args.algo in ['a2c', 'ppo', 'acktr', 'idp_a2c']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo', 'inputDependentA2C'], \
+        assert args.algo in ['a2c', 'ppo', 'idp_a2c'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args
