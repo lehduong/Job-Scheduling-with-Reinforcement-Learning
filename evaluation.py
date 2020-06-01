@@ -8,7 +8,7 @@ from core.envs import make_vec_envs
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
     eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True, args=env_args)
+                              None, eval_log_dir, device, True, train=False, args=env_args)
 
     eval_episode_rewards = []
 
