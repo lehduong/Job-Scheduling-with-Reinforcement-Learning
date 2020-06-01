@@ -117,7 +117,8 @@ def main():
                     rollouts.masks[step])
 
             # Obser reward and next obs
-            obs, reward, done, infos = envs.step(action)
+            # TODO: park env does not support cuda tensor???
+            obs, reward, done, infos = envs.step(action.cpu())
             for info in infos:
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
