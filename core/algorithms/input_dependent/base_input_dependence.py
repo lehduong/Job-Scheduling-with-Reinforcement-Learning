@@ -44,13 +44,13 @@ class MetaInputDependentA2C(A2C_ACKTR):
         task_pt = int(num_processes/2)
         # first half
         first_obs = rollouts.obs[:-1, :task_pt, ...].reshape(-1, *obs_shape)  # num_steps * num_processes * input_shape
-        first_rnn_hxs = rollouts.recurrent_hidden_states[:-1, :task_pt].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
+        first_rnn_hxs = rollouts.recurrent_hidden_states[0, :task_pt].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
         first_mask = rollouts.masks[:-1, :task_pt].reshape(-1, 1)
         first_inputs = (first_obs, first_rnn_hxs, first_mask)
         first_labels = rollouts.returns[:-1, :task_pt, ...].reshape(-1, 1)
         # second half
         second_obs = rollouts.obs[:-1, task_pt:, ...].reshape(-1, *obs_shape)  # num_steps * num_processes * input_shape
-        second_rnn_hxs = rollouts.recurrent_hidden_states[:-1, task_pt:].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
+        second_rnn_hxs = rollouts.recurrent_hidden_states[0, task_pt:].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
         second_mask = rollouts.masks[:-1, task_pt:].reshape(-1, 1)
         second_inputs = (second_obs, second_rnn_hxs, second_mask)
         second_labels = rollouts.returns[:-1, task_pt:, ...].reshape(-1, 1)
@@ -109,7 +109,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
         values, value_loss = self.adapt_and_predict(rollouts)
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
             rollouts.obs[:-1].view(-1, *obs_shape),
-            rollouts.recurrent_hidden_states[:-1].view(
+            rollouts.recurrent_hidden_states[0].view(
                 -1, self.actor_critic.recurrent_hidden_state_size),
             rollouts.masks[:-1].view(-1, 1),
             rollouts.actions.view(-1, action_shape))
