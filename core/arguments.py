@@ -146,10 +146,12 @@ def get_args():
     # META INPUT-DEPENDENT BASELINE
     parser.add_argument(
         '--num-inner-steps',
+        type=int,
         default=4,
         help='number of gradient steps for adapting to new input sequences (default: 4)')
     parser.add_argument(
         '--adapt-lr',
+        type=float,
         default=2e-3,
         help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
 

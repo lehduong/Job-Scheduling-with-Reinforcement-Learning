@@ -5,15 +5,10 @@ from core import utils
 from core.envs import make_vec_envs
 
 
-def evaluate(actor_critic, ob_rms, env_name, seed, num_processes, eval_log_dir,
-             device):
+def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
+             device, env_args=None):
     eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True)
-
-    vec_norm = utils.get_vec_normalize(eval_envs)
-    if vec_norm is not None:
-        vec_norm.eval()
-        vec_norm.ob_rms = ob_rms
+                              None, eval_log_dir, device, True, args=env_args)
 
     eval_episode_rewards = []
 

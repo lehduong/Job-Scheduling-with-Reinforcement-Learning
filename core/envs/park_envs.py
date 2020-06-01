@@ -34,8 +34,13 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
             env = TimeLimitMask(env)
         
         # if using load balance, clip and normalize the observation with this wrapper
-        if env_id == 'load_balance':
-            env = ProcessLoadBalanceObservation(env, args.job_size_norm_factor, args.server_load_norm_factor, args.highest_server_obs, args.highest_job_obs)
+        if env_id == 'load_balance' and args is not None:
+            env = ProcessLoadBalanceObservation(env, 
+                    args.job_size_norm_factor, 
+                    args.server_load_norm_factor, 
+                    args.highest_server_obs, 
+                    args.highest_job_obs
+                )
 
         # normalize reward
         if args is not None:

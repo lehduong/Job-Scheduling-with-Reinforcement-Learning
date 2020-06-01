@@ -187,9 +187,8 @@ def main():
         
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
-            ob_rms = utils.get_vec_normalize(envs).ob_rms
-            evaluate(actor_critic, ob_rms, args.env_name, args.seed,
-                     args.num_processes, eval_log_dir, device)
+            evaluate(actor_critic, args.env_name, args.seed,
+                     args.num_processes, eval_log_dir, device, env_args=args)
 
 
 if __name__ == "__main__":
