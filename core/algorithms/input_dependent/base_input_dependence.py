@@ -75,6 +75,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
             :param dummy_labels: dummy labels to activate the gradient of meta network
         """
         keys = grads[0].keys()
+        # multiple loss with value_loss_coef equivalent to multiple this coef with grad
         gradients = {k: sum(grad[k] for grad in grads) for k in keys}
 
         # compute dummy loss
@@ -93,6 +94,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
         # compute grad for curr step 
         self.meta_optimizer.zero_grad()
         loss.backward()
+        nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
         self.meta_optimizer.step()
 
         for h in hooks:
