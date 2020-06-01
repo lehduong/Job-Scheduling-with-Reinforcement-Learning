@@ -1,6 +1,7 @@
 import copy
 import torch 
 
+from itertools import chain
 from collections import OrderedDict
 from torch.optim import Adam, SGD
 from torch.nn import MSELoss
@@ -32,7 +33,7 @@ class MetaInputDependentPolicy(Policy):
         """
         # create new net and exclusively update this network
         fast_net = copy.deepcopy(self.base)
-        task_optimizer = SGD(fast_net.critic.parameters(), lr=self.lr)
+        task_optimizer = SGD(chain(fast_net.critic.parameters(), fast_net.gru.parameters()), lr=self.lr)
 
         task_obs, task_rnn_hxs, task_masks = task_inputs
 
@@ -50,8 +51,8 @@ class MetaInputDependentPolicy(Policy):
         meta_obs, meta_rnn_hxs, meta_masks = meta_inputs
         meta_preds, _, _ = fast_net(meta_obs, meta_rnn_hxs, meta_masks)
         meta_loss = self.adapt_criterion(meta_preds, meta_labels)
-        grads = torch.autograd.grad(meta_loss, fast_net.critic.parameters())
-        meta_grads = {name:g for ((name, _), g) in zip(fast_net.critic.named_parameters(), grads)}
+        grads = torch.autograd.grad(meta_loss, chain(fast_net.critic.parameters(), fast_net.gru.parameters()))
+        meta_grads = {name:g for ((name, _), g) in zip(chain(fast_net.critic.named_parameters(), fast_net.gru.named_parameters()), grads)}
         
         return meta_preds, meta_grads
 

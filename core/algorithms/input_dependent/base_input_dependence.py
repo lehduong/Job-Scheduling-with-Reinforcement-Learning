@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from itertools import chain
 from core.algorithms.a2c_acktr import A2C_ACKTR
 
 
@@ -21,7 +22,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
                  acktr=False):
         super().__init__(actor_critic, value_loss_coef, entropy_coef, lr, eps, alpha, max_grad_norm, acktr)
         self.meta_optimizer = optim.RMSprop(
-                actor_critic.base.critic.parameters(), lr, eps=eps, alpha=alpha)
+                chain(actor_critic.base.critic.parameters(),actor_critic.base.gru.parameters()), lr, eps=eps, alpha=alpha)
 
     def adapt_and_predict(self, rollouts):
         """
@@ -77,24 +78,24 @@ class MetaInputDependentA2C(A2C_ACKTR):
         keys = grads[0].keys()
         # multiple loss with value_loss_coef equivalent to multiple this coef with grad
         gradients = {k: sum(grad[k] for grad in grads) for k in keys}
-
         # compute dummy loss
         criterion = self.actor_critic.criterion
         value_pred, _, _ = self.actor_critic.base(*dummy_inputs)
         loss = criterion(value_pred, dummy_labels)
 
         hooks = []
-        for (k,v) in self.actor_critic.base.critic.named_parameters():
+        for (k,v) in chain(self.actor_critic.base.critic.named_parameters(), self.actor_critic.base.gru.named_parameters()):
             def get_closure():
                 key = k
                 def replace_grad(grad):
                     return gradients[key]
                 return replace_grad
             hooks.append(v.register_hook(get_closure()))
+        
         # compute grad for curr step 
         self.meta_optimizer.zero_grad()
         loss.backward()
-        nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
+        #nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
         self.meta_optimizer.step()
 
         for h in hooks:
@@ -105,13 +106,13 @@ class MetaInputDependentA2C(A2C_ACKTR):
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
 
+        values, value_loss = self.adapt_and_predict(rollouts)
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[:-1].view(
                 -1, self.actor_critic.recurrent_hidden_state_size),
             rollouts.masks[:-1].view(-1, 1),
             rollouts.actions.view(-1, action_shape))
-        values, value_loss = self.adapt_and_predict(rollouts)
 
         values = values.view(num_steps, num_processes, 1)
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
@@ -146,4 +147,3 @@ class MetaInputDependentA2C(A2C_ACKTR):
         self.optimizer.step()
 
         return value_loss, action_loss.item(), dist_entropy.item()
-
