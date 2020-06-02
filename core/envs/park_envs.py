@@ -26,7 +26,10 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
             raise ValueError("Unsupported environment, expect the environment to be one of "
                 +str(PARK_ENV_LIST)+" but got: "+str(env_id))
         else:
-            env = park.make(env_id)
+            if args.num_stream_jobs is not None:
+                env = park.make(env_id, num_stream_jobs=args.num_stream_jobs)
+            else:
+                env = park.make(env_id)
 
         if max_episode_steps:
             env = TimeLimit(env, max_episode_steps)

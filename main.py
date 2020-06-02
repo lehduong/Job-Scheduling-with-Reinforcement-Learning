@@ -109,7 +109,22 @@ def main():
     # in the environment repeatedly. If the trajectory is ended, simply reset it and    # do it again.
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
+    # the gradient update interval to increase number of stream jobs
+    curriculum_interval = int(num_updates/args.num_curriculum_time)
+
     for j in range(num_updates):
+        if (args.env_id == 'load_balance') and (j % curriculum_interval) == 0:
+            args.num_stream_jobs = int(args.num_stream_jobs * args.num_stream_jobs_factor)
+            # reconstruct environments to increase the number of stream jobs 
+            if not args.use_proper_time_limits:
+                envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
+                         args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
+            else:
+                envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
+                         args.gamma, args.log_dir, device, True, args.num_frame_stack, args.max_episode_steps, args=args)
+            obs = envs.reset()
+            rollouts.obs[0].copy_(obs)
+            rollouts.to(device)
 
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
