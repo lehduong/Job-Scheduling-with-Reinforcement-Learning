@@ -33,10 +33,12 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
             _, action, _, eval_recurrent_hidden_states = actor_critic.act(
                 obs,
                 eval_recurrent_hidden_states,
-                eval_masks)
+                eval_masks,
+                deterministic=True)
 
         # Obser reward and next obs
-        obs, _, done, infos = eval_envs.step(action)
+        #TODO: Park doesn't support GPU tensor
+        obs, _, done, infos = eval_envs.step(action.cpu())
 
         eval_masks = torch.tensor(
             [[0.0] if done_ else [1.0] for done_ in done],
@@ -60,7 +62,7 @@ def benchmark_heuristic(agent, eval_envs):
         action = agent.act(obs)
         # Obser reward and next obs
 
-        obs, _, done, infos = eval_envs.step(action)
+        obs, _, done, infos = eval_envs.step(action.cpu())
 
         for info in infos:
             if 'episode' in info.keys():

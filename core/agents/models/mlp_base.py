@@ -8,10 +8,10 @@ class MLPBase(NNBase):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         self.actor = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh())
+            nn.Linear(num_inputs, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size))
 
         if recurrent:
             num_inputs = hidden_size
@@ -20,9 +20,9 @@ class MLPBase(NNBase):
                                constant_(x, 0), np.sqrt(2))
 
         self.critic = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
+            nn.Linear(num_inputs, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
             nn.Linear(hidden_size, 1))
 
         self.train()

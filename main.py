@@ -83,7 +83,8 @@ def main():
             actor_critic,
             args.value_loss_coef,
             args.entropy_coef,
-            lr=args.lr,
+            critic_lr=args.critic_lr,
+            actor_lr=args.actor_lr,
             eps=args.eps,
             alpha=args.alpha,
             max_grad_norm=args.max_grad_norm

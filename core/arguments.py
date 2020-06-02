@@ -10,6 +10,10 @@ def get_args():
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
+        '--critic-lr', type=float, default=5e-4, help='learning rate of critic (default: 1e-3)')
+    parser.add_argument(
+        '--actor-lr', type=float, default=5e-4, help='learning rate of actor (default: 1e-3)')
+    parser.add_argument(
         '--eps',
         type=float,
         default=1e-5,
@@ -147,12 +151,12 @@ def get_args():
     parser.add_argument(
         '--num-inner-steps',
         type=int,
-        default=4,
+        default=10,
         help='number of gradient steps for adapting to new input sequences (default: 4)')
     parser.add_argument(
         '--adapt-lr',
         type=float,
-        default=2e-3,
+        default=1e-2,
         help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
 
     # LOAD BALANCE ENVIRONMENT

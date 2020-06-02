@@ -4,12 +4,12 @@ import torch
 from itertools import chain
 from collections import OrderedDict
 from torch.optim import Adam, SGD
-from torch.nn import MSELoss
+from torch.nn import MSELoss, L1Loss
 from .pg import Policy
 
 
 class MetaInputDependentPolicy(Policy):
-    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=MSELoss):
+    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
         # TODO: add args for optimizer
@@ -33,7 +33,7 @@ class MetaInputDependentPolicy(Policy):
         """
         # create new net and exclusively update this network
         fast_net = copy.deepcopy(self.base)
-        task_optimizer = SGD(chain(fast_net.critic.parameters(), fast_net.gru.parameters()), lr=self.lr)
+        task_optimizer = Adam(chain(fast_net.critic.parameters(), fast_net.gru.parameters()), lr=self.lr)
 
         task_obs, task_rnn_hxs, task_masks = task_inputs
 
