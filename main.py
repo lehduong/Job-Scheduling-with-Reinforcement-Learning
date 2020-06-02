@@ -118,7 +118,7 @@ def main():
             # reconstruct environments to increase the number of stream jobs 
             # also alter the random seed
             if not args.use_proper_time_limits:
-                envs = make_vec_envs(args.env_name, args.seed+j args.num_processes,
+                envs = make_vec_envs(args.env_name, args.seed+j, args.num_processes,
                          args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
             else:
                 envs = make_vec_envs(args.env_name, args.seed+j, args.num_processes,

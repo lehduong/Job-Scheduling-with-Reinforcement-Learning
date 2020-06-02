@@ -1,1 +1,0 @@
-python main.py --env-name "load_balance"

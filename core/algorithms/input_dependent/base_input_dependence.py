@@ -42,13 +42,13 @@ class MetaInputDependentA2C(A2C_ACKTR):
         # prepare input and output of meta learner
         # ie splitting them into 2
         task_pt = int(num_processes/2)
-        # first half
+        # first half rollouts 
         first_obs = rollouts.obs[:-1, :task_pt, ...].reshape(-1, *obs_shape)  # num_steps * num_processes * input_shape
         first_rnn_hxs = rollouts.recurrent_hidden_states[0, :task_pt].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
         first_mask = rollouts.masks[:-1, :task_pt].reshape(-1, 1)
         first_inputs = (first_obs, first_rnn_hxs, first_mask)
         first_labels = rollouts.returns[:-1, :task_pt, ...].reshape(-1, 1)
-        # second half
+        # second half rollouts 
         second_obs = rollouts.obs[:-1, task_pt:, ...].reshape(-1, *obs_shape)  # num_steps * num_processes * input_shape
         second_rnn_hxs = rollouts.recurrent_hidden_states[0, task_pt:].reshape(-1, self.actor_critic.recurrent_hidden_state_size)
         second_mask = rollouts.masks[:-1, task_pt:].reshape(-1, 1)
