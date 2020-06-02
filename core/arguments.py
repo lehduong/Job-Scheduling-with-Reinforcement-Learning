@@ -161,6 +161,14 @@ def get_args():
         default=1000,
         help='normalize factor of job size in load balance env (default: 1000)')
     parser.add_argument(
+        '--num-curriculum-time',
+        default=65,
+        help='number of time we would like to increase the num-stream-jobs in load balance env (default: 65)')
+    parser.add_argument(
+        '--num-stream-jobs-factor',
+        default=1.1,
+        help='exponentially increase the number of stream jobs in environment after some interval (default: 1.1)')
+    parser.add_argument(
         '--server-load-norm-factor',
         default=5000,
         help='normalize factor of server load in load balance env (default: 5000)')
@@ -176,6 +184,10 @@ def get_args():
         '--reward-norm-factor',
         default=1000,
         help='normalize factor of reward in training (default: 1000)')
+    parser.add_argument(
+        '--num-stream-jobs',
+        default=1000,
+        help='number of stream jobs of load balance env in training (default: 1000)')
     
     args = parser.parse_args()
 
