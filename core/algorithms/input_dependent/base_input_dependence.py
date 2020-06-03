@@ -24,7 +24,8 @@ class MetaInputDependentA2C(A2C_ACKTR):
         super().__init__(actor_critic, value_loss_coef, entropy_coef, actor_lr, eps, alpha, max_grad_norm, acktr)
         self.meta_optimizer = optim.Adam(
                 chain(actor_critic.base.critic.parameters(),actor_critic.base.gru.parameters()), critic_lr)
-        self.optimizer = optim.Adam(actor_critic.base.actor.parameters(), actor_lr)
+        self.optimizer = optim.Adam(
+                chain(actor_critic.base.actor.parameters(), actor_critic.dist.parameters()), actor_lr)
 
     def adapt_and_predict(self, rollouts):
         """

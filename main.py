@@ -114,7 +114,7 @@ def main():
     curriculum_interval = int(num_updates/args.num_curriculum_time)
 
     for j in range(num_updates):
-        if (args.env_name == 'load_balance') and (j % curriculum_interval) == 0:
+        if (args.env_name == 'load_balance') and ((j+1) % curriculum_interval) == 0:
             args.num_stream_jobs = int(args.num_stream_jobs * args.num_stream_jobs_factor)
             # reconstruct environments to increase the number of stream jobs 
             # also alter the random seed
