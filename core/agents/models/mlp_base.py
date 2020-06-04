@@ -7,12 +7,6 @@ class MLPBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=64):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
-        self.actor = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size))
-
         if recurrent:
             num_inputs = hidden_size
 
@@ -25,6 +19,12 @@ class MLPBase(NNBase):
             nn.Linear(hidden_size, hidden_size), nn.ReLU(),
             nn.Linear(hidden_size, 1))
 
+        self.actor = nn.Sequential(
+            nn.Linear(num_inputs, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size))
+
         self.train()
 
     def forward(self, inputs, rnn_hxs, masks):
@@ -34,6 +34,6 @@ class MLPBase(NNBase):
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
         value =  self.critic(x)
-        hidden_actor = self.actor(inputs)
+        hidden_actor = self.actor(x)
 
         return value, hidden_actor, rnn_hxs

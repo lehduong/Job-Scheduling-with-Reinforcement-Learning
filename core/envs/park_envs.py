@@ -6,6 +6,7 @@ import numpy as np
 import os
 import park
 import gym
+import random
 
 from park.spaces.box import Box
 from baselines import bench, logger
@@ -35,7 +36,12 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
             env = TimeLimit(env, max_episode_steps)
             # adding information to env for computing return
             env = TimeLimitMask(env)
-        
+            
+        if hasattr(args, 'num_random_steps_reset'):
+            env = LoadBalanceRandomReset(env, args.num_random_steps_reset)
+        else:
+            env = LoadBalanceRandomReset(env)
+
         # if using load balance, clip and normalize the observation with this wrapper
         if env_id == 'load_balance' and args is not None:
             env = ProcessLoadBalanceObservation(env, 
@@ -142,6 +148,23 @@ class ProcessLoadBalanceObservation(gym.ObservationWrapper):
         # normalized
         observation = observation/self.norm_vec
         return np.minimum(observation, self.threshold) 
+
+class LoadBalanceRandomReset(gym.Wrapper):
+    def __init__(self, env, num_random_steps_reset=50):
+        """Sample initial states by taking random number of no-ops on reset.
+        No-op is assumed to be action 0.
+        """
+        super().__init__(env)
+        self.num_random_steps_reset = num_random_steps_reset
+
+    def reset(self, **kwargs):
+        """ Do no-op action for a number of steps in [1, noop_max]."""
+        self.env.reset(**kwargs)
+        for _ in range(self.num_random_steps_reset):
+            obs, _, done, _ = self.env.step(random.randint(0, len(self.env.servers)-1))
+            if done:
+                obs = self.env.reset(**kwargs)
+        return obs
 
 
 class RewardNormalize(gym.RewardWrapper):
