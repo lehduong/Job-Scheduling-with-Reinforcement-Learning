@@ -3,8 +3,6 @@ import torch
 
 from .base import HeuristicAgent
 
-j
-
 
 class ShortestProcessingTimeAgent(HeuristicAgent):
     def __init__(self, service_rates=[0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05]):
