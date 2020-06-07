@@ -1,16 +1,14 @@
 import os
 import time
-from collections import deque
-
 import numpy as np
 import torch
 
+from collections import deque
 from core import algorithms, utils
+from core.agents import Policy, MetaInputDependentPolicy
 from core.arguments import get_args
 from core.envs import make_vec_envs
-from core.agents import Policy, MetaInputDependentPolicy
 from core.storage import RolloutStorage
-from core.agents.models import BNCNN
 from evaluation import evaluate
 
 
@@ -31,15 +29,23 @@ def main():
 
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
-    
+
+    # limited the number of steps for each episode
+    # IMPORTANT: for load balance / spark-sim we automatically do this by setting 
+    # the number of stream jobs
     if not args.use_proper_time_limits:
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                         args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
+                             args.gamma, args.log_dir, device, False,
+                             args.num_frame_stack, args=args)
     else:
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                         args.gamma, args.log_dir, device, True, args.num_frame_stack, args.max_episode_steps, args=args)
-    
-    if args.algo == 'idp_a2c':
+                             args.gamma, args.log_dir, device, True,
+                             args.num_frame_stack, args.max_episode_steps, args=args)
+
+    # create actor critic 
+    if args.algo.startswith('idp'):
+        # actor critic for input-dependent baseline
+        # i.e. meta critic (and conventional actor)
         actor_critic = MetaInputDependentPolicy(
             envs.observation_space.shape,
             envs.action_space,
@@ -47,6 +53,7 @@ def main():
             num_inner_steps=args.num_inner_steps,
             adapt_lr=args.adapt_lr)
     else:
+        # vanilla actor-critic 
         actor_critic = Policy(
             envs.observation_space.shape,
             envs.action_space,
@@ -63,7 +70,6 @@ def main():
             eps=args.eps,
             alpha=args.alpha,
             max_grad_norm=args.max_grad_norm)
-
     elif args.algo == 'ppo':
         agent = algorithms.PPO(
             actor_critic,
@@ -111,20 +117,21 @@ def main():
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
     # the gradient update interval to increase number of stream jobs
-    curriculum_interval = int(num_updates/args.num_curriculum_time)
+    curriculum_interval = int(num_updates / args.num_curriculum_time)
 
     for j in range(num_updates):
-        if (args.env_name == 'load_balance') and ((j+1) % curriculum_interval) == 0:
+        if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
             args.num_stream_jobs = int(args.num_stream_jobs * args.num_stream_jobs_factor)
             # reconstruct environments to increase the number of stream jobs 
             # also alter the random seed
             if not args.use_proper_time_limits:
-                envs = make_vec_envs(args.env_name, args.seed+j, args.num_processes,
-                         args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
+                envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
+                                     args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
             else:
-                envs = make_vec_envs(args.env_name, args.seed+j, args.num_processes,
-                         args.gamma, args.log_dir, device, True, args.num_frame_stack, args.max_episode_steps, args=args)
-            print("Increase the number of stream jobs to "+str(args.num_stream_jobs))
+                envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
+                                     args.gamma, args.log_dir, device, True, args.num_frame_stack,
+                                     args.max_episode_steps, args=args)
+            print("Increase the number of stream jobs to " + str(args.num_stream_jobs))
             obs = envs.reset()
             rollouts.obs[0].copy_(obs)
             rollouts.to(device)
@@ -134,7 +141,7 @@ def main():
             utils.update_linear_schedule(
                 agent.optimizer, j, num_updates,
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
-        
+
         # Rolling out, collecting and storing SARS (State, action, reward, new state)
         for step in range(args.num_steps):
             # Sample actions
@@ -151,11 +158,8 @@ def main():
                     episode_rewards.append(info['episode']['r'])
 
             # If done then clean the history of observations.
-            masks = torch.FloatTensor(
-                [[0.0] if done_ else [1.0] for done_ in done])
-            bad_masks = torch.FloatTensor(
-                [[0.0] if 'bad_transition' in info.keys() else [1.0]
-                 for info in infos])
+            masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
+            bad_masks = torch.FloatTensor([[0.0] if 'bad_transition' in info.keys() else [1.0] for info in infos])
             rollouts.insert(obs, recurrent_hidden_states, action,
                             action_log_prob, value, reward, masks, bad_masks)
 
@@ -166,14 +170,14 @@ def main():
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                  args.gae_lambda, args.use_proper_time_limits)
-        
+
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
 
         rollouts.after_update()
 
         # save for every interval-th episode or for the last epoch
         if (j % args.save_interval == 0
-                or j == num_updates - 1) and args.save_dir != "":
+            or j == num_updates - 1) and args.save_dir != "":
             save_path = os.path.join(args.save_dir, args.algo)
             try:
                 os.makedirs(save_path)
@@ -188,25 +192,25 @@ def main():
         if j % args.log_interval == 0 and len(episode_rewards) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
-            print(
-                "\nUpdates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}"
-                .format(j, total_num_steps,
+            print("="*90)
+            print("Updates {}, num timesteps {}, FPS {}"\
+                  "\n=> Last {} training episodes: mean/median reward"\
+                  "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}".format(
+                        j, total_num_steps,
                         int(total_num_steps / (end - start)),
                         len(episode_rewards), np.mean(episode_rewards),
                         np.median(episode_rewards), np.min(episode_rewards),
                         np.max(episode_rewards), dist_entropy, value_loss,
                         action_loss))
-            print(
-                " Value loss: {:.2f} Action loss {:2f} Dist Entropy {:2f}"
-                .format(value_loss,
+            print("=> Value loss: {:.2f} Action loss {:2f} Dist Entropy {:2f}".format(
+                        value_loss,
                         action_loss,
-                        dist_entropy)
-            )
-        
+                        dist_entropy))
+
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            evaluate(actor_critic, args.env_name, args.seed+j,
+            evaluate(actor_critic, args.env_name, args.seed + j,
                      args.num_processes, eval_log_dir, device, env_args=args)
 
 

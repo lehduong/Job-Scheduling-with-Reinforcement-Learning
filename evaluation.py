@@ -14,11 +14,11 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
     # benchmark heuristic
     # least_work
     leastwork_env = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True, train=False, args=env_args)
+                                  None, eval_log_dir, device, True, train=False, args=env_args)
     benchmark_heuristic(LeastWorkAgent(), leastwork_env)
     # shortest processing time
     spt_env = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True, train=False, args=env_args)
+                            None, eval_log_dir, device, True, train=False, args=env_args)
     benchmark_heuristic(ShortestProcessingTimeAgent(), spt_env)
 
     eval_episode_rewards = []

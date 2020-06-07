@@ -1,10 +1,10 @@
 import copy
-import torch 
-
 from itertools import chain
-from collections import OrderedDict
-from torch.optim import Adam, SGD
-from torch.nn import MSELoss, L1Loss
+
+import torch
+from torch.nn import L1Loss
+from torch.optim import Adam
+
 from .pg import Policy
 
 
@@ -12,7 +12,6 @@ class MetaInputDependentPolicy(Policy):
     def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
-        # TODO: add args for optimizer
         self.lr = adapt_lr
         self.adapt_criterion = adapt_criterion()
 
@@ -51,8 +50,11 @@ class MetaInputDependentPolicy(Policy):
         meta_obs, meta_rnn_hxs, meta_masks = meta_inputs
         meta_preds, _, _ = fast_net(meta_obs, meta_rnn_hxs, meta_masks)
         meta_loss = self.adapt_criterion(meta_preds, meta_labels)
-        grads = torch.autograd.grad(meta_loss, chain(fast_net.critic.parameters(), fast_net.gru.parameters()))
-        meta_grads = {name:g for ((name, _), g) in zip(chain(fast_net.critic.named_parameters(), fast_net.gru.named_parameters()), grads)}
+        grads = torch.autograd.grad(meta_loss, chain(fast_net.critic.parameters(),
+                                                     fast_net.gru.parameters()))
+        meta_grads = {name: g for ((name, _), g) in zip(chain(fast_net.critic.named_parameters(),
+                                                              fast_net.gru.named_parameters()),
+                                                        grads)}
         
         return meta_preds, meta_grads
 
@@ -68,3 +70,23 @@ class MetaInputDependentPolicy(Policy):
         dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
+    
+    def imitation_learning(self, inputs, rnn_hxs, masks, expert):
+        """
+            Imitation learning loss
+        :param inputs: state observations
+        :param rnn_hxs: rnn hidden state
+        :param masks: mask the final state with 0 value
+        :param expert: a trained or heuristic agent
+        :return: log probability of expert's actions
+        """
+        _, actor_features, _ = self.base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+
+        expert_actions = expert.act(inputs)
+        action_log_probs = dist.log_probs(expert_actions)
+
+        return action_log_probs
+
+    def forward(self, inputs, rnn_hxs, masks):
+        return self.base(inputs, rnn_hxs, masks)

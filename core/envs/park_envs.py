@@ -18,6 +18,10 @@ from baselines.common.wrappers import TimeLimit
 from baselines.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
+from .load_balance_wrappers import ProcessLoadBalanceObservation, \
+    LoadBalanceRandomReset, RewardNormalize
+
+
 PARK_ENV_LIST = ['spark', 'spark_sim',
                  'load_balance']
 
@@ -26,35 +30,37 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
         if env_id not in PARK_ENV_LIST:
             raise ValueError("Unsupported environment, expect the environment to be one of "
                 +str(PARK_ENV_LIST)+" but got: "+str(env_id))
-        else:
+        elif env_id == 'load_balance':
+            # arrange the number of stream jobs 
             if args.num_stream_jobs is not None:
                 env = park.make(env_id, num_stream_jobs=args.num_stream_jobs)
             else:
                 env = park.make(env_id)
 
+            # random act after resetting to diversify the state 
+            if hasattr(args, 'num_random_steps_reset'):
+                env = LoadBalanceRandomReset(env, args.num_random_steps_reset)
+            else:
+                env = LoadBalanceRandomReset(env)
+
+            # if using load balance, clip and normalize the observation with this wrapper
+            if args is not None:
+                env = ProcessLoadBalanceObservation(env, 
+                        args.job_size_norm_factor, 
+                        args.server_load_norm_factor, 
+                        args.highest_server_obs, 
+                        args.highest_job_obs
+                    )
+                    
+            # normalize reward
+            if args is not None:
+                env = RewardNormalize(env, args.reward_norm_factor)
+
         if max_episode_steps:
             env = TimeLimit(env, max_episode_steps)
             # adding information to env for computing return
             env = TimeLimitMask(env)
-            
-        if hasattr(args, 'num_random_steps_reset'):
-            env = LoadBalanceRandomReset(env, args.num_random_steps_reset)
-        else:
-            env = LoadBalanceRandomReset(env)
-
-        # if using load balance, clip and normalize the observation with this wrapper
-        if env_id == 'load_balance' and args is not None:
-            env = ProcessLoadBalanceObservation(env, 
-                    args.job_size_norm_factor, 
-                    args.server_load_norm_factor, 
-                    args.highest_server_obs, 
-                    args.highest_job_obs
-                )
-
-        # normalize reward
-        if args is not None:
-            env = RewardNormalize(env, args.reward_norm_factor)
-
+        
         #IMPORTANT: all environments used same random seed to repeat the input-process
         if train:
             env.seed(seed)
@@ -122,61 +128,6 @@ class TimeLimitMask(gym.Wrapper):
 
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
-
-
-class ProcessLoadBalanceObservation(gym.ObservationWrapper):
-    """
-        Normalize and clip the observation of LoadBalance environment
-        :param job_size_norm_factor: float - divide job_size by this factor
-        :param highest_server_obs: float - clip the server (in observation) having load higher than this value
-        :param highest_job_obs: float - clip the job (in observation) having size greater than this value
-    """
-    def __init__(self, env, job_size_norm_factor, server_load_norm_factor, highest_server_obs, highest_job_obs):
-        super().__init__(env)
-        self.job_size_norm_factor = job_size_norm_factor
-        self.server_load_norm_factor = server_load_norm_factor
-        self.highest_server_obs = highest_server_obs
-        self.highest_job_obs = highest_job_obs
-
-        # compute clip threshold
-        num_server = len(env.servers)
-        self.threshold = np.array([self.highest_server_obs]*num_server+[self.highest_job_obs])
-        # compute the normalize vector
-        self.norm_vec = np.array([self.server_load_norm_factor]*num_server+[self.job_size_norm_factor])
-
-    def observation(self, observation):
-        # normalized
-        observation = observation/self.norm_vec
-        return np.minimum(observation, self.threshold) 
-
-class LoadBalanceRandomReset(gym.Wrapper):
-    def __init__(self, env, num_random_steps_reset=50):
-        """Sample initial states by taking random number of no-ops on reset.
-        No-op is assumed to be action 0.
-        """
-        super().__init__(env)
-        self.num_random_steps_reset = num_random_steps_reset
-
-    def reset(self, **kwargs):
-        """ Do no-op action for a number of steps in [1, noop_max]."""
-        self.env.reset(**kwargs)
-        for _ in range(self.num_random_steps_reset):
-            obs, _, done, _ = self.env.step(random.randint(0, len(self.env.servers)-1))
-            if done:
-                obs = self.env.reset(**kwargs)
-        return obs
-
-
-class RewardNormalize(gym.RewardWrapper):
-    """
-        Divide the reward by a fixed value
-    """
-    def __init__(self, env, norm_factor):
-        super().__init__(env)
-        self.norm_factor = norm_factor 
-
-    def reward(self, reward):
-        return reward/self.norm_factor
 
 
 # Can be used to test recurrent policies for Reacher-v2
