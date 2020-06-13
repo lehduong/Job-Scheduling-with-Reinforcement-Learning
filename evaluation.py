@@ -6,6 +6,7 @@ from core import utils
 from core.envs import make_vec_envs
 from core.agents.heuristic.load_balance import LeastWorkAgent, ShortestProcessingTimeAgent
 
+
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
     eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
@@ -37,7 +38,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
                 deterministic=True)
 
         # Obser reward and next obs
-        #TODO: Park doesn't support GPU tensor
+        # TODO: Park doesn't support GPU tensor
         obs, _, done, infos = eval_envs.step(action.cpu())
 
         eval_masks = torch.tensor(
@@ -51,11 +52,12 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
 
     eval_envs.close()
 
-    print(" Evaluation using {} episodes: mean reward {:.5f}\n".format(
+    print("=> Evaluation using {} episodes: mean reward {:.5f}\n".format(
         len(eval_episode_rewards), np.mean(eval_episode_rewards)))
 
+
 def benchmark_heuristic(agent, eval_envs):
-    obs = eval_envs.reset() 
+    obs = eval_envs.reset()
     eval_episode_rewards = []
 
     while len(eval_episode_rewards) < 10:
@@ -70,5 +72,5 @@ def benchmark_heuristic(agent, eval_envs):
 
     eval_envs.close()
 
-    print(" Evaluation" + agent.__class__.__name__ + " using {} episodes: mean reward {:.5f}\n".format(
+    print("=> Evaluation" + agent.__class__.__name__ + " using {} episodes: mean reward {:.5f}\n".format(
         len(eval_episode_rewards), np.mean(eval_episode_rewards)))

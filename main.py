@@ -2,6 +2,7 @@ import os
 import time
 import numpy as np
 import torch
+import os.path as osp
 
 from collections import deque
 from core import algorithms, utils
@@ -10,6 +11,7 @@ from core.arguments import get_args
 from core.envs import make_vec_envs
 from core.storage import RolloutStorage
 from evaluation import evaluate
+from tensorboardX import SummaryWriter
 
 
 def main():
@@ -22,27 +24,33 @@ def main():
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-    log_dir = os.path.expanduser(args.log_dir)
-    eval_log_dir = log_dir + "_eval"
+    base_dir = osp.expanduser(args.log_dir)
+    log_dir = osp.join(base_dir, 'train_log')
+    eval_log_dir = osp.join(base_dir, "eval_log")
+    tensorboard_dir = osp.join(base_dir, "tensorboard_log")
+
     utils.cleanup_log_dir(log_dir)
     utils.cleanup_log_dir(eval_log_dir)
+    utils.cleanup_log_dir(tensorboard_dir)
+    utils.dump_config(args, osp.join(base_dir, 'config.txt'))
 
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
+    writer = SummaryWriter(tensorboard_dir)
 
     # limited the number of steps for each episode
-    # IMPORTANT: for load balance / spark-sim we automatically do this by setting 
+    # IMPORTANT: for load balance / spark-sim we automatically do this by setting
     # the number of stream jobs
     if not args.use_proper_time_limits:
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                             args.gamma, args.log_dir, device, False,
+                             args.gamma, log_dir, device, False,
                              args.num_frame_stack, args=args)
     else:
         envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                             args.gamma, args.log_dir, device, True,
+                             args.gamma, log_dir, device, True,
                              args.num_frame_stack, args.max_episode_steps, args=args)
 
-    # create actor critic 
+    # create actor critic
     if args.algo.startswith('idp'):
         # actor critic for input-dependent baseline
         # i.e. meta critic (and conventional actor)
@@ -53,7 +61,7 @@ def main():
             num_inner_steps=args.num_inner_steps,
             adapt_lr=args.adapt_lr)
     else:
-        # vanilla actor-critic 
+        # vanilla actor-critic
         actor_critic = Policy(
             envs.observation_space.shape,
             envs.action_space,
@@ -109,38 +117,44 @@ def main():
     episode_rewards = deque(maxlen=10)
 
     start = time.time()
-    # lehduong: Total number of gradient updates
-    # basically, the agent will act on the environment for a number of steps
-    # which is usually referred to as n_steps. Then, we compute the cummulative
-    # reward, update the policy. After that, we continue rolling out the agent 
-    # in the environment repeatedly. If the trajectory is ended, simply reset it and    # do it again.
+
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
+
     # the gradient update interval to increase number of stream jobs
     curriculum_interval = int(num_updates / args.num_curriculum_time)
 
     for j in range(num_updates):
+
+        # if using load_balance environment: \
+        # we have to gradually increase number of stream jos
         if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
-            args.num_stream_jobs = int(args.num_stream_jobs * args.num_stream_jobs_factor)
-            # reconstruct environments to increase the number of stream jobs 
+            args.num_stream_jobs = int(
+                args.num_stream_jobs * args.num_stream_jobs_factor)
+
+            # reconstruct environments to increase the number of stream jobs
             # also alter the random seed
             if not args.use_proper_time_limits:
                 envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
-                                     args.gamma, args.log_dir, device, False, args.num_frame_stack, args=args)
+                                     args.gamma, log_dir, device, False, args.num_frame_stack,
+                                     args=args)
             else:
                 envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
-                                     args.gamma, args.log_dir, device, True, args.num_frame_stack,
+                                     args.gamma, log_dir, device, True, args.num_frame_stack,
                                      args.max_episode_steps, args=args)
-            print("Increase the number of stream jobs to " + str(args.num_stream_jobs))
+            print("Increase the number of stream jobs to " +
+                  str(args.num_stream_jobs))
             obs = envs.reset()
             rollouts.obs[0].copy_(obs)
             rollouts.to(device)
 
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
-            utils.update_linear_schedule(
+            cur_lr = utils.update_linear_schedule(
                 agent.optimizer, j, num_updates,
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
+        else:
+            cur_lr = agent.optimizer.param_groups[0]["lr"]
 
         # Rolling out, collecting and storing SARS (State, action, reward, new state)
         for step in range(args.num_steps):
@@ -158,8 +172,10 @@ def main():
                     episode_rewards.append(info['episode']['r'])
 
             # If done then clean the history of observations.
-            masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
-            bad_masks = torch.FloatTensor([[0.0] if 'bad_transition' in info.keys() else [1.0] for info in infos])
+            masks = torch.FloatTensor(
+                [[0.0] if done_ else [1.0] for done_ in done])
+            bad_masks = torch.FloatTensor(
+                [[0.0] if 'bad_transition' in info.keys() else [1.0] for info in infos])
             rollouts.insert(obs, recurrent_hidden_states, action,
                             action_log_prob, value, reward, masks, bad_masks)
 
@@ -175,9 +191,9 @@ def main():
 
         rollouts.after_update()
 
-        # save for every interval-th episode or for the last epoch
+        # SAVE trained model
         if (j % args.save_interval == 0
-            or j == num_updates - 1) and args.save_dir != "":
+                or j == num_updates - 1) and args.save_dir != "":
             save_path = os.path.join(args.save_dir, args.algo)
             try:
                 os.makedirs(save_path)
@@ -189,29 +205,36 @@ def main():
                 getattr(utils.get_vec_normalize(envs), 'ob_rms', None)
             ], os.path.join(save_path, args.env_name + ".pt"))
 
+        # LOG TRAINING results
         if j % args.log_interval == 0 and len(episode_rewards) > 1:
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
             print("="*90)
-            print("Updates {}, num timesteps {}, FPS {}"\
-                  "\n=> Last {} training episodes: mean/median reward"\
+            print("Updates {}, num timesteps {}, FPS {}, LR: {}"
+                  "\n=> Last {} training episodes: mean/median reward "
                   "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}".format(
-                        j, total_num_steps,
-                        int(total_num_steps / (end - start)),
-                        len(episode_rewards), np.mean(episode_rewards),
-                        np.median(episode_rewards), np.min(episode_rewards),
-                        np.max(episode_rewards), dist_entropy, value_loss,
-                        action_loss))
+                      j, total_num_steps,
+                      int(total_num_steps / (end - start)),
+                      cur_lr,
+                      len(episode_rewards), np.mean(episode_rewards),
+                      np.median(episode_rewards), np.min(episode_rewards),
+                      np.max(episode_rewards), dist_entropy, value_loss,
+                      action_loss))
             print("=> Value loss: {:.2f} Action loss {:2f} Dist Entropy {:2f}".format(
-                        value_loss,
-                        action_loss,
-                        dist_entropy))
+                value_loss,
+                action_loss,
+                dist_entropy))
 
+        writer.add_scalar("reward/train", np.mean(episode_rewards), j)
+
+        # EVALUATE performance of learned policy along with heuristic
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
             evaluate(actor_critic, args.env_name, args.seed + j,
                      args.num_processes, eval_log_dir, device, env_args=args)
+
+    writer.close()
 
 
 if __name__ == "__main__":

@@ -9,6 +9,10 @@ from .pg import Policy
 
 
 class MetaInputDependentPolicy(Policy):
+    """
+        Policy agent with meta critic. Support `train_and_predict_meta_critic` for learning to estimate value of new input\
+                sequences
+    """
     def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
