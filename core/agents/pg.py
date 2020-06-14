@@ -19,7 +19,8 @@ class Policy(nn.Module):
             elif len(obs_shape) == 1:
                 base = MLPBase
             else:
-                raise NotImplementedError("Expect the observation's shape to be either 3 or 1 but got {}".format(len(obs_shape)))
+                raise NotImplementedError(
+                    "Expect the observation's shape to be either 3 or 1 but got {}".format(len(obs_shape)))
 
         self.base = base(obs_shape[0], **base_kwargs)
 
@@ -75,4 +76,3 @@ class Policy(nn.Module):
         dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
-

@@ -37,6 +37,8 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
         num_processes, actor_critic.recurrent_hidden_state_size, device=device)
     eval_masks = torch.zeros(num_processes, 1, device=device)
 
+    # TODO: Deterministic configuration results in much worse performance \
+    # compare to non-deterministic one
     while len(eval_episode_rewards) < 10:
         with torch.no_grad():
             _, action, _, eval_recurrent_hidden_states = actor_critic.act(
@@ -46,7 +48,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
                 deterministic=False)
 
         # Obser reward and next obs
-        # TODO: Park doesn't support GPU tensor
+        # FIXME: debug why actions must be moved to cpu?
         obs, _, done, infos = eval_envs.step(action.cpu())
 
         eval_masks = torch.tensor(

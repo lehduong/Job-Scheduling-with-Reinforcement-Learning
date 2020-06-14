@@ -244,14 +244,18 @@ def main():
                 action_loss,
                 dist_entropy))
 
-        writer.add_scalar("reward/train", np.mean(episode_rewards), j)
+        writer.add_scalar("train/reward", np.mean(episode_rewards), j)
 
         # EVALUATE performance of learned policy along with heuristic
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            evaluate(actor_critic, args.env_name, args.seed + j,
-                     args.num_processes, eval_log_dir, device, env_args=args)
+            eval_results = evaluate(actor_critic, args.env_name, args.seed + j,
+                                    args.num_processes, eval_log_dir, device, env_args=args)
+            writer.add_scalars(
+                'eval/reward',
+                {k: np.mean(v) for k, v in eval_results.items()},
+                j)
 
     writer.close()
 
