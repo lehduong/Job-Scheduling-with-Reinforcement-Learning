@@ -45,7 +45,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
                 obs,
                 eval_recurrent_hidden_states,
                 eval_masks,
-                deterministic=False)
+                deterministic=True)
 
         # Obser reward and next obs
         # FIXME: debug why actions must be moved to cpu?

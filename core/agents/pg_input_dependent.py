@@ -6,12 +6,14 @@ from torch.nn import L1Loss
 from torch.optim import Adam
 
 from .pg import Policy
+from .il import ImitationLearner
 
 
-class MetaInputDependentPolicy(Policy):
+class MetaInputDependentPolicy(ImitationLearner):
     """
-        Policy agent with meta critic. Support `train_and_predict_meta_critic` for learning to estimate value of new input\
-                sequences
+        Policy agent with meta critic. \
+        Support `train_and_predict_meta_critic` for learning to estimate value of new input\
+            sequences
     """
 
     def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
@@ -76,23 +78,6 @@ class MetaInputDependentPolicy(Policy):
         dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
-
-    def imitation_learning(self, inputs, rnn_hxs, masks, expert):
-        """
-            Imitation learning loss
-        :param inputs: state observations
-        :param rnn_hxs: rnn hidden state
-        :param masks: mask the final state with 0 value
-        :param expert: a trained or heuristic agent
-        :return: log probability of expert's actions
-        """
-        _, actor_features, _ = self.base(inputs, rnn_hxs, masks)
-        dist = self.dist(actor_features)
-
-        expert_actions = expert.act(inputs)
-        action_log_probs = dist.log_probs(expert_actions)
-
-        return action_log_probs
 
     def forward(self, inputs, rnn_hxs, masks):
         return self.base(inputs, rnn_hxs, masks)
