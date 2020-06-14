@@ -42,13 +42,22 @@ def main():
     # IMPORTANT: for load balance / spark-sim we automatically do this by setting
     # the number of stream jobs
     if not args.use_proper_time_limits:
-        envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                             args.gamma, log_dir, device, False,
-                             args.num_frame_stack, args=args)
+        envs = make_vec_envs(env_name=args.env_name,
+                             seed=args.seed,
+                             num_processes=args.num_processes,
+                             log_dir=log_dir,
+                             device=device,
+                             allow_early_resets=False,
+                             args=args)
     else:
-        envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
-                             args.gamma, log_dir, device, True,
-                             args.num_frame_stack, args.max_episode_steps, args=args)
+        envs = make_vec_envs(env_name=args.env_name,
+                             seed=args.seed,
+                             num_processes=args.num_processes,
+                             log_dir=log_dir,
+                             device=device,
+                             allow_early_resets=True,
+                             max_episode_steps=args.max_episode_steps,
+                             args=args)
 
     # create actor critic
     if args.algo.startswith('idp'):
@@ -135,13 +144,23 @@ def main():
             # reconstruct environments to increase the number of stream jobs
             # also alter the random seed
             if not args.use_proper_time_limits:
-                envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
-                                     args.gamma, log_dir, device, False, args.num_frame_stack,
+                envs = make_vec_envs(env_name=args.env_name,
+                                     seed=args.seed + j,
+                                     num_processes=args.num_processes,
+                                     log_dir=log_dir,
+                                     device=device,
+                                     allow_early_resets=False,
                                      args=args)
             else:
-                envs = make_vec_envs(args.env_name, args.seed + j, args.num_processes,
-                                     args.gamma, log_dir, device, True, args.num_frame_stack,
-                                     args.max_episode_steps, args=args)
+                envs = make_vec_envs(env_name=args.env_name,
+                                     seed=args.seed + j,
+                                     num_processes=args.num_processes,
+                                     log_dir=log_dir,
+                                     device=device,
+                                     allow_early_resets=True,
+                                     max_episode_steps=args.max_episode_steps,
+                                     args=args)
+
             print("Increase the number of stream jobs to " +
                   str(args.num_stream_jobs))
             obs = envs.reset()

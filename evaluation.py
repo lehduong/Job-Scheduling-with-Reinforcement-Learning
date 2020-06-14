@@ -4,24 +4,32 @@ import copy
 
 from core import utils
 from core.envs import make_vec_envs
-from core.agents.heuristic.load_balance import LeastWorkAgent, ShortestProcessingTimeAgent
+from core.agents.heuristic.load_balance import LeastWorkAgent, \
+    ShortestProcessingTimeAgent, RandomAllocateAgent, EarliestCompletionTimeAgent
 
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
-    eval_envs = make_vec_envs(env_name, seed + num_processes, num_processes,
-                              None, eval_log_dir, device, True, train=False, args=env_args)
-
+    returns = benchmark_heuristic([LeastWorkAgent(),
+                                   ShortestProcessingTimeAgent(),
+                                   RandomAllocateAgent(),
+                                   EarliestCompletionTimeAgent()],
+                                  env_name=env_name,
+                                  seed=seed,
+                                  num_processes=num_processes,
+                                  log_dir=eval_log_dir,
+                                  device=device,
+                                  args=env_args)
     # benchmark heuristic
     # least_work
-    leastwork_env = make_vec_envs(env_name, seed + num_processes, num_processes,
-                                  None, eval_log_dir, device, True, train=False, args=env_args)
-    benchmark_heuristic(LeastWorkAgent(), leastwork_env)
-    # shortest processing time
-    spt_env = make_vec_envs(env_name, seed + num_processes, num_processes,
-                            None, eval_log_dir, device, True, train=False, args=env_args)
-    benchmark_heuristic(ShortestProcessingTimeAgent(), spt_env)
-
+    eval_envs = make_vec_envs(env_name=env_name,
+                              seed=seed + num_processes,
+                              num_processes=num_processes,
+                              log_dir=eval_log_dir,
+                              device=device,
+                              allow_early_resets=True,
+                              train=False,
+                              args=env_args)
     eval_episode_rewards = []
 
     obs = eval_envs.reset()
@@ -35,7 +43,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
                 obs,
                 eval_recurrent_hidden_states,
                 eval_masks,
-                deterministic=True)
+                deterministic=False)
 
         # Obser reward and next obs
         # TODO: Park doesn't support GPU tensor
@@ -51,12 +59,19 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
                 eval_episode_rewards.append(info['episode']['r'])
 
     eval_envs.close()
+    returns['RLAgent'] = eval_episode_rewards
 
-    print("=> Evaluation using {} episodes: mean reward {:.5f}\n".format(
-        len(eval_episode_rewards), np.mean(eval_episode_rewards)))
+    # print out the result
+    for k, v in returns.items():
+        print("=> Evaluate {} using {} episodes: mean reward {:.5f}\n".format(
+            k, len(v), np.mean(v)))
+    return returns
 
 
-def benchmark_heuristic(agent, eval_envs):
+def benchmark_single_heuristic(agent, eval_envs):
+    """
+        Compute return of a single heuristic agent
+    """
     obs = eval_envs.reset()
     eval_episode_rewards = []
 
@@ -72,5 +87,26 @@ def benchmark_heuristic(agent, eval_envs):
 
     eval_envs.close()
 
-    print("=> Evaluation" + agent.__class__.__name__ + " using {} episodes: mean reward {:.5f}\n".format(
-        len(eval_episode_rewards), np.mean(eval_episode_rewards)))
+    return eval_episode_rewards
+
+
+def benchmark_heuristic(agents, **kwargs):
+    """
+        Compute return of all heuristics
+    """
+    ret = {}
+    for agent in agents:
+        envs = make_vec_envs(env_name=kwargs['env_name'],
+                             seed=kwargs['seed'] + kwargs['num_processes'],
+                             num_processes=kwargs['num_processes'],
+                             log_dir=kwargs['log_dir'],
+                             device=kwargs['device'],
+                             allow_early_resets=True,
+                             train=False,
+                             args=kwargs['args'])
+
+        eval_episode_rewards = benchmark_single_heuristic(agent, envs)
+        # append the result to return dictionary
+        ret[agent.__class__.__name__] = eval_episode_rewards
+
+    return ret

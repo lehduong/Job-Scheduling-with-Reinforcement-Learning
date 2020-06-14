@@ -2,7 +2,7 @@
 Make environments of Park Platform
 """
 import torch
-import numpy as np 
+import numpy as np
 import os
 import park
 import gym
@@ -25,43 +25,52 @@ from .load_balance_wrappers import ProcessLoadBalanceObservation, \
 PARK_ENV_LIST = ['spark', 'spark_sim',
                  'load_balance']
 
-def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=None, args=None, train=True):
+
+def make_env(env_id,
+             seed,
+             rank,
+             log_dir,
+             allow_early_resets,
+             max_episode_steps=None,
+             args=None,
+             train=True):
     def _thunk():
         if env_id not in PARK_ENV_LIST:
             raise ValueError("Unsupported environment, expect the environment to be one of "
-                +str(PARK_ENV_LIST)+" but got: "+str(env_id))
+                             + str(PARK_ENV_LIST)+" but got: "+str(env_id))
         elif env_id == 'load_balance':
-            # arrange the number of stream jobs 
+            # arrange the number of stream jobs
             if args.num_stream_jobs is not None:
                 env = park.make(env_id, num_stream_jobs=args.num_stream_jobs)
             else:
                 env = park.make(env_id)
 
-            # random act after resetting to diversify the state 
-            if hasattr(args, 'num_random_steps_reset'):
-                env = LoadBalanceRandomReset(env, args.num_random_steps_reset)
-            else:
-                env = LoadBalanceRandomReset(env)
+            # random act after resetting to diversify the state
+            # only use when training
+            if train:
+                if hasattr(args, 'num_random_steps_reset'):
+                    env = LoadBalanceRandomReset(
+                        env, args.num_random_steps_reset)
+                else:
+                    env = LoadBalanceRandomReset(env)
 
             # if using load balance, clip and normalize the observation with this wrapper
             if args is not None:
-                env = ProcessLoadBalanceObservation(env, 
-                        args.job_size_norm_factor, 
-                        args.server_load_norm_factor, 
-                        args.highest_server_obs, 
-                        args.highest_job_obs
-                    )
-                    
-            # normalize reward
-            if args is not None:
+                env = ProcessLoadBalanceObservation(env,
+                                                    args.job_size_norm_factor,
+                                                    args.server_load_norm_factor,
+                                                    args.highest_server_obs,
+                                                    args.highest_job_obs
+                                                    )
+                # normalize reward
                 env = RewardNormalize(env, args.reward_norm_factor)
 
         if max_episode_steps:
             env = TimeLimit(env, max_episode_steps)
             # adding information to env for computing return
             env = TimeLimitMask(env)
-        
-        #IMPORTANT: all environments used same random seed to repeat the input-process
+
+        # IMPORTANT: all environments used same random seed to repeat the input-process
         if train:
             env.seed(seed)
         else:
@@ -69,22 +78,21 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets, max_episode_steps=
 
         if log_dir is not None:
             env = bench.Monitor(
-                    env,
-                    os.path.join(log_dir, str(rank)),
-                    allow_early_resets=allow_early_resets)
+                env,
+                os.path.join(log_dir, str(rank)),
+                allow_early_resets=allow_early_resets)
 
-        return env 
+        return env
 
     return _thunk
+
 
 def make_vec_envs(env_name,
                   seed,
                   num_processes,
-                  gamma,
                   log_dir,
                   device,
                   allow_early_resets,
-                  num_frame_stack=None,
                   max_episode_steps=None,
                   args=None,
                   train=True):
@@ -93,11 +101,9 @@ def make_vec_envs(env_name,
         :param env_name: str - name of environment
         :param seed: int - random seed of environment
         :num_process: int - number of parallel environment
-        :param gamma: float - (0:1) reward decay
         :param log_dir: str - path to log directory
         :param device: str - 'cuda' or 'cpu'
         :param allow_early_reset: bool - if apply TimeLimitMask on environments, set this param to True
-        :param num_frame_stack: int - stack multiple frame with same action
         :param max_episode_steps: int - maximum number of action in 1 episode
         :param args: ArgsParser - use to specifiy environment args
         :param train: bool - determine if we are using created to train or evaluate
@@ -105,8 +111,10 @@ def make_vec_envs(env_name,
                             otherwise, we diversify the random seed
     """
     envs = [
-            make_env(env_name, seed, i, log_dir, allow_early_resets, max_episode_steps, args=args, train=train)
-            for i in range(num_processes)
+        make_env(env_id=env_name, seed=seed, rank=i, log_dir=log_dir,
+                 allow_early_resets=allow_early_resets,
+                 max_episode_steps=max_episode_steps, args=args, train=train)
+        for i in range(num_processes)
     ]
 
     if len(envs) > 1:
@@ -115,7 +123,9 @@ def make_vec_envs(env_name,
         envs = DummyVecEnv(envs)
 
     envs = VecPyTorch(envs, device)
+
     return envs
+
 
 # Checks whether done was caused my timit limits or not
 class TimeLimitMask(gym.Wrapper):

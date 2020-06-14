@@ -3,7 +3,7 @@ import torch
 from .base import HeuristicAgent
 
 
-class RandomAgent(HeuristicAgent):
+class RandomAllocateAgent(HeuristicAgent):
     def act(self, states):
         num_env = states.shape[0]
         num_servers = states.shape[1] - 1

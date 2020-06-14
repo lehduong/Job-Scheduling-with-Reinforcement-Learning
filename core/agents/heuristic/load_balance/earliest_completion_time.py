@@ -3,7 +3,7 @@ import torch
 from .shortest_processing_time import ShortestProcessingTimeAgent
 
 
-class EarliestCompletionTime(ShortestProcessingTimeAgent):
+class EarliestCompletionTimeAgent(ShortestProcessingTimeAgent):
     def act(self, states):
         """
             Give actions for given states
