@@ -67,11 +67,11 @@ class Categorical(nn.Module):
             gain=0.01)
 
         self.linear = nn.Sequential(
-            init_(nn.Linear(num_inputs, num_inputs)),
+            nn.Linear(num_inputs, num_inputs),
             nn.ReLU(),
-            init_(nn.Linear(num_inputs, num_inputs)),
+            nn.Linear(num_inputs, num_inputs),
             nn.ReLU(),
-            init_(nn.Linear(num_inputs, num_outputs))
+            nn.Linear(num_inputs, num_outputs)
         )
 
     def forward(self, x):

@@ -1,23 +1,30 @@
 import copy
-import torch 
+from itertools import chain
 
-from collections import OrderedDict
-from torch.optim import Adam, SGD
-from torch.nn import MSELoss
+import torch
+from torch.nn import L1Loss
+from torch.optim import Adam
+
 from .pg import Policy
+from .il import ImitationLearner
 
 
-class MetaInputDependentPolicy(Policy):
-    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=MSELoss):
+class MetaInputDependentPolicy(ImitationLearner):
+    """
+        Policy agent with meta critic. \
+        Support `train_and_predict_meta_critic` for learning to estimate value of new input\
+            sequences
+    """
+
+    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
-        # TODO: add args for optimizer
         self.lr = adapt_lr
         self.adapt_criterion = adapt_criterion()
 
     @property
     def criterion(self):
-        return self.adapt_criterion 
+        return self.adapt_criterion
 
     def train_and_predict_meta_critic(self, task_inputs, task_labels, meta_inputs, meta_labels):
         """
@@ -32,7 +39,8 @@ class MetaInputDependentPolicy(Policy):
         """
         # create new net and exclusively update this network
         fast_net = copy.deepcopy(self.base)
-        task_optimizer = SGD(fast_net.critic.parameters(), lr=self.lr)
+        task_optimizer = Adam(
+            chain(fast_net.critic.parameters(), fast_net.gru.parameters()), lr=self.lr)
 
         task_obs, task_rnn_hxs, task_masks = task_inputs
 
@@ -46,19 +54,22 @@ class MetaInputDependentPolicy(Policy):
             task_loss.backward()
             task_optimizer.step()
 
-        # compute meta grad 
+        # compute meta grad
         meta_obs, meta_rnn_hxs, meta_masks = meta_inputs
         meta_preds, _, _ = fast_net(meta_obs, meta_rnn_hxs, meta_masks)
         meta_loss = self.adapt_criterion(meta_preds, meta_labels)
-        grads = torch.autograd.grad(meta_loss, fast_net.critic.parameters())
-        meta_grads = {name:g for ((name, _), g) in zip(fast_net.critic.named_parameters(), grads)}
-        
+        grads = torch.autograd.grad(meta_loss, chain(fast_net.critic.parameters(),
+                                                     fast_net.gru.parameters()))
+        meta_grads = {name: g for ((name, _), g) in zip(chain(fast_net.critic.named_parameters(),
+                                                              fast_net.gru.named_parameters()),
+                                                        grads)}
+
         return meta_preds, meta_grads
 
     def get_value(self, inputs, rnn_hxs, masks):
         value, _, _ = self.base(inputs, rnn_hxs, masks)
         return value
-    
+
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
@@ -67,3 +78,6 @@ class MetaInputDependentPolicy(Policy):
         dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
+
+    def forward(self, inputs, rnn_hxs, masks):
+        return self.base(inputs, rnn_hxs, masks)

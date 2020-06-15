@@ -10,6 +10,10 @@ def get_args():
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
+        '--critic-lr', type=float, default=1e-3, help='learning rate of critic (default: 1e-3)')
+    parser.add_argument(
+        '--actor-lr', type=float, default=1e-3, help='learning rate of actor (default: 1e-3)')
+    parser.add_argument(
         '--eps',
         type=float,
         default=1e-5,
@@ -64,7 +68,7 @@ def get_args():
     parser.add_argument(
         '--num-steps',
         type=int,
-        default=1000,
+        default=100,
         help='number of forward steps in A2C (default: 20)')
     parser.add_argument(
         '--ppo-epoch',
@@ -94,7 +98,7 @@ def get_args():
     parser.add_argument(
         '--eval-interval',
         type=int,
-        default=None,
+        default=50,
         help='eval interval, one eval per n updates (default: None)')
     parser.add_argument(
         '--num-env-steps',
@@ -113,6 +117,11 @@ def get_args():
         '--save-dir',
         default='./trained_models/',
         help='directory to save agent logs (default: ./trained_models/)')
+    parser.add_argument(
+        '--resume-dir',
+        default='trained_models/idp_a2c/il.pt',
+        type=str,
+        help='directory to trained agent for resuming (default: None)')
     parser.add_argument(
         '--no-cuda',
         action='store_true',
@@ -135,46 +144,73 @@ def get_args():
     parser.add_argument(
         '--recurrent-policy',
         action='store_true',
-        default=False,
+        default=True,
         help='use a recurrent policy')
     parser.add_argument(
         '--use-linear-lr-decay',
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
-    
+
     # META INPUT-DEPENDENT BASELINE
     parser.add_argument(
         '--num-inner-steps',
-        default=4,
+        type=int,
+        default=1,
         help='number of gradient steps for adapting to new input sequences (default: 4)')
     parser.add_argument(
         '--adapt-lr',
-        default=2e-3,
+        type=float,
+        default=5e-3,
         help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
 
     # LOAD BALANCE ENVIRONMENT
     parser.add_argument(
+        '--num-curriculum-time',
+        default=65,
+        type=int,
+        help='number of time we would like to increase the num-stream-jobs in load balance env (default: 65)')
+    parser.add_argument(
+        '--num-stream-jobs-factor',
+        default=1.1,
+        type=float,
+        help='exponentially increase the number of stream jobs in environment after some interval (default: 1.1)')
+    parser.add_argument(
         '--job-size-norm-factor',
-        default=1000,
+        default=10,
+        type=float,
         help='normalize factor of job size in load balance env (default: 1000)')
     parser.add_argument(
         '--server-load-norm-factor',
-        default=5000,
+        default=50,
+        type=float,
         help='normalize factor of server load in load balance env (default: 5000)')
     parser.add_argument(
         '--highest-server-obs',
-        default=20,
+        default=200,
+        type=float,
         help='Clip server having higher load than this value in load balance environment (default: 20)')
     parser.add_argument(
         '--highest-job-obs',
-        default=10,
+        default=100,
+        type=float,
         help='Clip job having greater size than this value in load balance environment (default: 10)')
     parser.add_argument(
         '--reward-norm-factor',
-        default=1000,
+        default=10000,
+        type=float,
         help='normalize factor of reward in training (default: 1000)')
-    
+    parser.add_argument(
+        '--num-random-init-steps',
+        default=50,
+        type=int,
+        help='number  of random initial steps after resetting (default: 50)')
+    parser.add_argument(
+        '--num-stream-jobs',
+        default=100,
+        type=float,
+        help='number of stream jobs of load balance env in training (default: 1000)')
+
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

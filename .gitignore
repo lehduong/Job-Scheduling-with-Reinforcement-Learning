@@ -132,3 +132,5 @@ ex_eval/
 trained_models/
 .DS_Store
 .idea/
+.vscode/
+logs/

@@ -1,21 +1,14 @@
 import numpy as np
+import torch
+
+from .base import HeuristicAgent
 
 
-class LeastWorkAgent(object):
-    def __init__(self):
-        pass
-
-    def get_action(self, state):
-        workers, _, _ = state
-
-        min_work_idx = None
-        min_work = np.inf
-
-        for i in range(len(workers)):
-            worker = workers[i]
-            work = np.sum([j.size for j in worker.queue])
-            if work < min_work:
-                min_work_idx = i
-                min_work = work
-
-        return min_work_idx
+class LeastWorkAgent(HeuristicAgent):
+    def act(self, states):
+        """
+            Give actions for given states
+            :param states: torch tensor of shape num_envs x (num_servers+1)
+            :return: np.array of shape num_env x 1
+        """
+        return torch.argmin(states[:, :-1], dim=1, keepdims=True).to(states.device)
