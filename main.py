@@ -76,6 +76,9 @@ def main():
             envs.action_space,
             base_kwargs={'recurrent': args.recurrent_policy})
 
+    if args.resume_dir is not None:
+        print("=> Resuming from checkpoint: {}".format(args.resume_dir))
+        actor_critic = torch.load(args.resume_dir, map_location='cpu')[0]
     actor_critic.to(device)
 
     if args.algo == 'a2c':

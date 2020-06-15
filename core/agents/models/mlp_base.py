@@ -8,23 +8,23 @@ class MLPBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=64):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
-        if recurrent:
-            num_inputs = hidden_size
-
         def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.
                                   constant_(x, 0), np.sqrt(2))
 
-        self.critic = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, 1))
-
         self.actor = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
-            nn.Linear(hidden_size, hidden_size))
+            init_(nn.Linear(num_inputs, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)))
+
+        if recurrent:
+            num_inputs = hidden_size
+
+        self.critic = nn.Sequential(
+            init_(nn.Linear(num_inputs, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
+            init_(nn.Linear(hidden_size, 1)))
 
         self.train()
 
@@ -35,6 +35,6 @@ class MLPBase(NNBase):
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
         value = self.critic(x)
-        hidden_actor = self.actor(x)
+        hidden_actor = self.actor(inputs)
 
         return value, hidden_actor, rnn_hxs
