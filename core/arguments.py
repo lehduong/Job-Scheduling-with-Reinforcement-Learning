@@ -119,7 +119,7 @@ def get_args():
         help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument(
         '--resume-dir',
-        default='trained_models/idp_a2c/il.pt',
+        default=None,
         type=str,
         help='directory to trained agent for resuming (default: None)')
     parser.add_argument(

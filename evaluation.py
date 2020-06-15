@@ -65,7 +65,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
 
     # print out the result
     for k, v in returns.items():
-        print("=> Evaluate {} using {} episodes: mean reward {:.5f}\n".format(
+        print("   => Evaluate {} using {} episodes: mean reward {:.5f}".format(
             k, len(v), np.mean(v)))
     return returns
 
