@@ -40,10 +40,9 @@ def make_env(env_id,
                              + str(PARK_ENV_LIST)+" but got: "+str(env_id))
         elif env_id == 'load_balance':
             # arrange the number of stream jobs
-            if args.num_stream_jobs is not None:
-                env = park.make(env_id, num_stream_jobs=args.num_stream_jobs)
-            else:
-                env = park.make(env_id)
+            env = park.make(env_id,
+                            num_stream_jobs=args.num_stream_jobs,
+                            service_rates=args.load_balance_service_rates)
 
             # random act after resetting to diversify the state
             # only use when training

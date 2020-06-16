@@ -13,9 +13,11 @@ NUM_EVAL_EPISODES = 10
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
     returns = benchmark_heuristic([LeastWorkAgent(),
-                                   ShortestProcessingTimeAgent(),
+                                   ShortestProcessingTimeAgent(
+                                       env_args.load_balance_service_rates),
                                    RandomAllocateAgent(),
-                                   EarliestCompletionTimeAgent()],
+                                   EarliestCompletionTimeAgent(
+                                       env_args.load_balance_service_rates)],
                                   env_name=env_name,
                                   seed=seed,
                                   num_processes=num_processes,

@@ -166,6 +166,12 @@ def get_args():
 
     # LOAD BALANCE ENVIRONMENT
     parser.add_argument(
+        '--load-balance-service-rates',
+        default=[0.95, 1.05],
+        nargs='+',
+        type=int,
+        help='Service rates of each servers of load balance environment')
+    parser.add_argument(
         '--num-curriculum-time',
         default=65,
         type=int,
