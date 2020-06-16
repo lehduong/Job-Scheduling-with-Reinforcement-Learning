@@ -65,3 +65,18 @@ class RewardNormalize(gym.RewardWrapper):
 
     def reward(self, reward):
         return reward/self.norm_factor
+
+
+class FixJobSequence(gym.Wrapper):
+    """
+        Set the random seed of environment to a fixed value every time it reset\
+            thus, the job arrival sequence would be unchanged
+    """
+
+    def __init__(self, env, seed=0):
+        super().__init__(env)
+        self.random_seed = seed
+
+    def reset(self):
+        self.env.seed(self.random_seed)
+        return self.env.reset()

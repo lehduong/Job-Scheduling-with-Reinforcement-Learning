@@ -19,7 +19,7 @@ from baselines.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
 from .load_balance_wrappers import ProcessLoadBalanceObservation, \
-    LoadBalanceRandomReset, RewardNormalize
+    LoadBalanceRandomReset, RewardNormalize, FixJobSequence
 
 
 PARK_ENV_LIST = ['spark', 'spark_sim',
@@ -60,6 +60,10 @@ def make_env(env_id,
                                                     )
                 # normalize reward
                 env = RewardNormalize(env, args.reward_norm_factor)
+
+                if args.fix_job_sequence:
+                    # fix job sequence
+                    env = FixJobSequence(env, seed)
 
         if max_episode_steps:
             env = TimeLimit(env, max_episode_steps)

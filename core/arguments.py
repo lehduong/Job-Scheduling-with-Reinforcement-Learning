@@ -154,6 +154,11 @@ def get_args():
 
     # META INPUT-DEPENDENT BASELINE
     parser.add_argument(
+        '--fix-job-sequence',
+        action='store_true',
+        default=False,
+        help='if True then jobs arriving to servers will be fixed for every episode')
+    parser.add_argument(
         '--num-inner-steps',
         type=int,
         default=4,
@@ -167,7 +172,7 @@ def get_args():
     # LOAD BALANCE ENVIRONMENT
     parser.add_argument(
         '--load-balance-service-rates',
-        default=[0.95, 1.05],
+        default=[0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05],
         nargs='+',
         type=int,
         help='Service rates of each servers of load balance environment')
