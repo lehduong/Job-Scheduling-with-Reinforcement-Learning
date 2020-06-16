@@ -41,7 +41,7 @@ class LoadBalanceRandomReset(gym.Wrapper):
 
     def reset(self, **kwargs):
         """ Do no-op action for a number of steps in [1, noop_max]."""
-        self.env.reset(**kwargs)
+        obs = self.env.reset(**kwargs)
 
         # stochastically change number of random steps each time resetting the env
         num_random_steps = np.random.randint(0, self.max_random_steps)

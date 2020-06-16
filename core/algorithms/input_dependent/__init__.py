@@ -1,1 +1,1 @@
-from .base_input_dependence import MetaInputDependentA2C
+from .idp_a2c import MetaInputDependentA2C
