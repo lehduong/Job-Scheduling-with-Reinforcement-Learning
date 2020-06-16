@@ -12,19 +12,19 @@ class MLPBase(NNBase):
                                   constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)))
+            nn.Linear(num_inputs, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size))
 
         if recurrent:
             num_inputs = hidden_size
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.LeakyReLU(),
-            init_(nn.Linear(hidden_size, 1)))
+            nn.Linear(num_inputs, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, hidden_size), nn.LeakyReLU(),
+            nn.Linear(hidden_size, 1))
 
         self.train()
 

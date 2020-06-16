@@ -128,13 +128,12 @@ class MetaInputDependentA2C(A2C_ACKTR):
 
         # imitation learning
         expert = ShortestProcessingTimeAgent()
-        expert_action_log_probs = self.actor_critic.imitation_learning(
+        imitation_loss = self.actor_critic.imitation_learning(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[0].view(
                 -1, self.actor_critic.recurrent_hidden_state_size),
             rollouts.masks[:-1].view(-1, 1),
             expert)
-        expert_action_loss = - expert_action_log_probs.mean()
         # -----------------------------------------------------
 
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
@@ -168,7 +167,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
             self.optimizer.acc_stats = False
 
         self.optimizer.zero_grad()
-        (action_loss + expert_action_loss +
+        (action_loss + imitation_loss -
          dist_entropy * self.entropy_coef).backward()
 
         if self.acktr == False:

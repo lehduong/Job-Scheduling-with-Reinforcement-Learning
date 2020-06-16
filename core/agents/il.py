@@ -1,3 +1,4 @@
+from torch import nn
 from .pg import Policy
 
 
@@ -19,6 +20,8 @@ class ImitationLearner(Policy):
         dist = self.dist(actor_features)
 
         expert_actions = expert.act(inputs)
-        action_log_probs = dist.log_probs(expert_actions)
 
-        return action_log_probs
+        criterion = nn.CrossEntropyLoss()
+        il_loss = criterion(dist.probs, expert_actions.reshape(-1))
+
+        return il_loss
