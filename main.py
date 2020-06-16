@@ -209,7 +209,7 @@ def main():
         rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                  args.gae_lambda, args.use_proper_time_limits)
 
-        value_loss, action_loss, dist_entropy = agent.update(rollouts)
+        results = agent.update(rollouts)
 
         rollouts.after_update()
 
@@ -240,12 +240,11 @@ def main():
                       cur_lr,
                       len(episode_rewards), np.mean(episode_rewards),
                       np.median(episode_rewards), np.min(episode_rewards),
-                      np.max(episode_rewards), dist_entropy, value_loss,
-                      action_loss))
-            print("=> Value loss: {:.2f} Action loss {:2f} Dist Entropy {:2f}".format(
-                value_loss,
-                action_loss,
-                dist_entropy))
+                      np.max(episode_rewards)))
+            result_str = "=> "
+            for k, v in results.items():
+                result_str = result_str + "{}: {:.2f} ".format(k, v)
+            print(result_str)
 
         writer.add_scalar("train/reward", np.mean(episode_rewards), j)
 

@@ -176,4 +176,9 @@ class MetaInputDependentA2C(A2C_ACKTR):
 
         self.optimizer.step()
 
-        return value_loss, action_loss.item(), dist_entropy.item()
+        return {
+            'value loss': value_loss,
+            'action loss': action_loss.item(),
+            'entropy loss': dist_entropy.item(),
+            'imitation loss': imitation_loss.item()
+        }
