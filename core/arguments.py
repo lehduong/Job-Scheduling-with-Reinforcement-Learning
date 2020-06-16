@@ -63,7 +63,7 @@ def get_args():
     parser.add_argument(
         '--num-processes',
         type=int,
-        default=4,
+        default=16,
         help='how many training CPU processes to use (default: 16)')
     parser.add_argument(
         '--num-steps',
@@ -111,15 +111,15 @@ def get_args():
         help='environment to train on (default: PongNoFrameskip-v4)')
     parser.add_argument(
         '--log-dir',
-        default='ex',
-        help='directory to save agent logs (default: ex)')
+        default='logs',
+        help='directory to save agent logs (default: logs)')
     parser.add_argument(
         '--save-dir',
         default='./trained_models/',
         help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument(
         '--resume-dir',
-        default='trained_models/idp_a2c/il.pt',
+        default=None,
         type=str,
         help='directory to trained agent for resuming (default: None)')
     parser.add_argument(
@@ -156,7 +156,7 @@ def get_args():
     parser.add_argument(
         '--num-inner-steps',
         type=int,
-        default=1,
+        default=4,
         help='number of gradient steps for adapting to new input sequences (default: 4)')
     parser.add_argument(
         '--adapt-lr',
@@ -177,22 +177,22 @@ def get_args():
         help='exponentially increase the number of stream jobs in environment after some interval (default: 1.1)')
     parser.add_argument(
         '--job-size-norm-factor',
-        default=10,
+        default=1000,
         type=float,
         help='normalize factor of job size in load balance env (default: 1000)')
     parser.add_argument(
         '--server-load-norm-factor',
-        default=50,
+        default=5000,
         type=float,
         help='normalize factor of server load in load balance env (default: 5000)')
     parser.add_argument(
         '--highest-server-obs',
-        default=200,
+        default=20,
         type=float,
         help='Clip server having higher load than this value in load balance environment (default: 20)')
     parser.add_argument(
         '--highest-job-obs',
-        default=100,
+        default=10,
         type=float,
         help='Clip job having greater size than this value in load balance environment (default: 10)')
     parser.add_argument(
@@ -207,7 +207,7 @@ def get_args():
         help='maximum number  of random initial steps after resetting (default: 50)')
     parser.add_argument(
         '--num-stream-jobs',
-        default=100,
+        default=1000,
         type=float,
         help='number of stream jobs of load balance env in training (default: 1000)')
 

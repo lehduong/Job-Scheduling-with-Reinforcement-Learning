@@ -7,7 +7,7 @@ from core.envs import make_vec_envs
 from core.agents.heuristic.load_balance import LeastWorkAgent, \
     ShortestProcessingTimeAgent, RandomAllocateAgent, EarliestCompletionTimeAgent
 
-NUM_EVAL_EPISODES = 100
+NUM_EVAL_EPISODES = 10
 
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
