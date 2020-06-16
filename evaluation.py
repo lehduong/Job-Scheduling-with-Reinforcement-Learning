@@ -7,6 +7,8 @@ from core.envs import make_vec_envs
 from core.agents.heuristic.load_balance import LeastWorkAgent, \
     ShortestProcessingTimeAgent, RandomAllocateAgent, EarliestCompletionTimeAgent
 
+NUM_EVAL_EPISODES = 100
+
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
@@ -39,7 +41,7 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
 
     # TODO: Deterministic configuration results in much worse performance \
     # compare to non-deterministic one
-    while len(eval_episode_rewards) < 10:
+    while len(eval_episode_rewards) < NUM_EVAL_EPISODES:
         with torch.no_grad():
             _, action, _, eval_recurrent_hidden_states = actor_critic.act(
                 obs,
@@ -77,7 +79,7 @@ def benchmark_single_heuristic(agent, eval_envs):
     obs = eval_envs.reset()
     eval_episode_rewards = []
 
-    while len(eval_episode_rewards) < 10:
+    while len(eval_episode_rewards) < NUM_EVAL_EPISODES:
         action = agent.act(obs)
         # Obser reward and next obs
 

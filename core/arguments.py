@@ -119,7 +119,7 @@ def get_args():
         help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument(
         '--resume-dir',
-        default=None,
+        default='trained_models/idp_a2c/il.pt',
         type=str,
         help='directory to trained agent for resuming (default: None)')
     parser.add_argument(
@@ -201,10 +201,10 @@ def get_args():
         type=float,
         help='normalize factor of reward in training (default: 1000)')
     parser.add_argument(
-        '--num-random-init-steps',
+        '--max-random-init-steps',
         default=50,
         type=int,
-        help='number  of random initial steps after resetting (default: 50)')
+        help='maximum number  of random initial steps after resetting (default: 50)')
     parser.add_argument(
         '--num-stream-jobs',
         default=100,

@@ -16,7 +16,14 @@ class MetaInputDependentPolicy(ImitationLearner):
             sequences
     """
 
-    def __init__(self, obs_shape, action_shape, base=None, base_kwargs=None, num_inner_steps=1, adapt_lr=2e-3, adapt_criterion=L1Loss):
+    def __init__(self,
+                 obs_shape,
+                 action_shape,
+                 base=None,
+                 base_kwargs=None,
+                 num_inner_steps=1,
+                 adapt_lr=2e-3,
+                 adapt_criterion=L1Loss):
         super().__init__(obs_shape, action_shape, base, base_kwargs)
         self.num_inner_steps = num_inner_steps
         self.lr = adapt_lr

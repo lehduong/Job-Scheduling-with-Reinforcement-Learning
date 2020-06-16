@@ -33,17 +33,20 @@ class ProcessLoadBalanceObservation(gym.ObservationWrapper):
 
 
 class LoadBalanceRandomReset(gym.Wrapper):
-    def __init__(self, env, num_random_steps_reset=50):
+    def __init__(self, env, max_random_steps=50):
         """Sample initial states by taking random number of no-ops on reset.
-        No-op is assumed to be action 0.
         """
         super().__init__(env)
-        self.num_random_steps_reset = num_random_steps_reset
+        self.max_random_steps = max_random_steps
 
     def reset(self, **kwargs):
         """ Do no-op action for a number of steps in [1, noop_max]."""
         self.env.reset(**kwargs)
-        for _ in range(self.num_random_steps_reset):
+
+        # stochastically change number of random steps each time resetting the env
+        num_random_steps = np.random.randint(0, self.max_random_steps)
+
+        for _ in range(num_random_steps):
             obs, _, done, _ = self.env.step(
                 random.randint(0, len(self.env.servers)-1))
             if done:

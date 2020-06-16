@@ -48,11 +48,8 @@ def make_env(env_id,
             # random act after resetting to diversify the state
             # only use when training
             if train:
-                if hasattr(args, 'num_random_init_steps'):
-                    env = LoadBalanceRandomReset(
-                        env, args.num_random_init_steps)
-                else:
-                    env = LoadBalanceRandomReset(env)
+                env = LoadBalanceRandomReset(
+                    env, args.max_random_init_steps)
 
             # if using load balance, clip and normalize the observation with this wrapper
             if args is not None:
