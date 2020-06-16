@@ -1,3 +1,5 @@
+import torch
+
 from torch import nn
 from .pg import Policy
 
@@ -23,5 +25,7 @@ class ImitationLearner(Policy):
 
         criterion = nn.CrossEntropyLoss()
         il_loss = criterion(dist.probs, expert_actions.reshape(-1))
+        accuracy = (torch.argmax(dist.probs, dim=1) ==
+                    expert_actions.reshape(-1)).float().sum()/expert_actions.shape[0]
 
-        return il_loss
+        return il_loss, accuracy

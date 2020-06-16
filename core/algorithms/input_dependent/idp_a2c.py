@@ -46,8 +46,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
             :return: input-dependent values 
         """
         obs_shape = rollouts.obs.size()[2:]
-        action_shape = rollouts.actions.size()[-1]
-        num_steps, num_processes, _ = rollouts.rewards.size()
+        _, num_processes, _ = rollouts.rewards.size()
 
         # prepare input and output of meta learner
         # ie splitting them into 2
@@ -128,7 +127,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
 
         # imitation learning
         expert = ShortestProcessingTimeAgent()
-        imitation_loss = self.actor_critic.imitation_learning(
+        imitation_loss, accuracy = self.actor_critic.imitation_learning(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[0].view(
                 -1, self.actor_critic.recurrent_hidden_state_size),
@@ -167,8 +166,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
             self.optimizer.acc_stats = False
 
         self.optimizer.zero_grad()
-        (action_loss + imitation_loss -
-         dist_entropy * self.entropy_coef).backward()
+        (action_loss + imitation_loss - self.entropy_coef*dist_entropy).backward()
 
         if self.acktr == False:
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
@@ -180,5 +178,6 @@ class MetaInputDependentA2C(A2C_ACKTR):
             'value loss': value_loss,
             'action loss': action_loss.item(),
             'entropy loss': dist_entropy.item(),
-            'imitation loss': imitation_loss.item()
+            'imitation loss': imitation_loss.item(),
+            'accuracy': accuracy
         }

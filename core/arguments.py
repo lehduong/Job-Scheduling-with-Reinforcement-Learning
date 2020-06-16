@@ -177,24 +177,24 @@ def get_args():
         help='exponentially increase the number of stream jobs in environment after some interval (default: 1.1)')
     parser.add_argument(
         '--job-size-norm-factor',
-        default=1000,
-        type=float,
-        help='normalize factor of job size in load balance env (default: 1000)')
-    parser.add_argument(
-        '--server-load-norm-factor',
-        default=5000,
-        type=float,
-        help='normalize factor of server load in load balance env (default: 5000)')
-    parser.add_argument(
-        '--highest-server-obs',
-        default=20,
-        type=float,
-        help='Clip server having higher load than this value in load balance environment (default: 20)')
-    parser.add_argument(
-        '--highest-job-obs',
         default=10,
         type=float,
-        help='Clip job having greater size than this value in load balance environment (default: 10)')
+        help='normalize factor of job size in load balance env (default: 10)')
+    parser.add_argument(
+        '--server-load-norm-factor',
+        default=50,
+        type=float,
+        help='normalize factor of server load in load balance env (default: 50)')
+    parser.add_argument(
+        '--highest-server-obs',
+        default=2000,
+        type=float,
+        help='Clip server having higher load than this value in load balance environment (default: 2000)')
+    parser.add_argument(
+        '--highest-job-obs',
+        default=1000,
+        type=float,
+        help='Clip job having greater size than this value in load balance environment (default: 1000)')
     parser.add_argument(
         '--reward-norm-factor',
         default=10000,
