@@ -7,7 +7,7 @@ from itertools import chain
 from core.algorithms.a2c_acktr import A2C_ACKTR
 from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
 
-DECAY_RATE = 0.999
+DECAY_RATE = 0.995
 
 
 class MetaInputDependentA2C(A2C_ACKTR):
@@ -29,12 +29,10 @@ class MetaInputDependentA2C(A2C_ACKTR):
         super().__init__(actor_critic, value_loss_coef, entropy_coef,
                          lr, eps, alpha, max_grad_norm, acktr)
         self.critic_optimizer = optim.Adam(
-            chain(actor_critic.base.critic.parameters(),
-                  actor_critic.base.gru.parameters()),
+            actor_critic.parameters(),
             lr)
         self.actor_optimizer = optim.Adam(
-            chain(actor_critic.base.actor.parameters(),
-                  actor_critic.dist.parameters()),
+            actor_critic.parameters(),
             lr)
 
         del self.optimizer
@@ -47,11 +45,11 @@ class MetaInputDependentA2C(A2C_ACKTR):
             Train the meta critic with rollout experience and return the predicted values
 
             The adapted algorithm is described in Algorithm 1 of the paper https://arxiv.org/abs/1807.02264 \
-                    we split the rollout into 2 half, the critic parameters adapting to the first half will give 
+                    we split the rollout into 2 half, the critic parameters adapting to the first half will give
                     the prediction for second half. The critic parameters adapting to the second half will give
                     the prediction for first half.
             :param rollouts: RolloutStorage's instance
-            :return: input-dependent values 
+            :return: input-dependent values
         """
         obs_shape = rollouts.obs.size()[2:]
         _, num_processes, _ = rollouts.rewards.size()
@@ -94,7 +92,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
 
     def update_meta_grads(self, grads, dummy_inputs, dummy_labels):
         """
-            Cummulate gradients across tasks 
+            Cummulate gradients across tasks
             :param grads: list of OrderedDict - each element is the gradient from a task
             :param dummy_inputs: dummy inputs to activate the gradient of meta network
             :param dummy_labels: dummy labels to activate the gradient of meta network
@@ -120,7 +118,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
         # compute grad for curr step
         self.critic_optimizer.zero_grad()
         loss.backward()
-        #nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
+        # nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
         self.critic_optimizer.step()
 
         for h in hooks:
@@ -130,17 +128,6 @@ class MetaInputDependentA2C(A2C_ACKTR):
         obs_shape = rollouts.obs.size()[2:]
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
-
-        # imitation learning
-        imitation_loss, accuracy = torch.tensor(0), 0
-        if self.expert:
-            imitation_loss, accuracy = self.actor_critic.imitation_learning(
-                rollouts.obs[:-1].view(-1, *obs_shape),
-                rollouts.recurrent_hidden_states[0].view(
-                    -1, self.actor_critic.recurrent_hidden_state_size),
-                rollouts.masks[:-1].view(-1, 1),
-                self.expert)
-        # -----------------------------------------------------
 
         # action loss + entropy loss
         values, value_loss = self.adapt_and_predict(rollouts)
@@ -156,6 +143,17 @@ class MetaInputDependentA2C(A2C_ACKTR):
 
         advantages = rollouts.returns[:-1] - values
         action_loss = -(advantages.detach() * action_log_probs).mean()
+
+        # imitation learning
+        imitation_loss, accuracy = torch.tensor(0), 0
+        if self.expert:
+            imitation_loss, accuracy = self.actor_critic.imitation_learning(
+                rollouts.obs[:-1].view(-1, *obs_shape),
+                rollouts.recurrent_hidden_states[0].view(
+                    -1, self.actor_critic.recurrent_hidden_state_size),
+                rollouts.masks[:-1].view(-1, 1),
+                self.expert)
+        # -----------------------------------------------------
 
         self.actor_optimizer.zero_grad()
 

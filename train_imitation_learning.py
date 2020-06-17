@@ -86,7 +86,7 @@ def main():
     actor_critic.to(device)
 
     optimizer = optim.Adam(
-        chain(actor_critic.parameters()),
+        actor_critic.parameters(),
         args.actor_lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                      factor=0.5,
