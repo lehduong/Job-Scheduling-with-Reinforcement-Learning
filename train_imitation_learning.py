@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import os.path as osp
 
-from torch.optim import Adam
+from torch import optim
 from collections import deque
 from itertools import chain
 from tensorboardX import SummaryWriter
@@ -85,9 +85,15 @@ def main():
         actor_critic = torch.load(args.resume_dir, map_location='cpu')[0]
     actor_critic.to(device)
 
-    optimizer = Adam(
+    optimizer = optim.Adam(
         chain(actor_critic.parameters()),
         args.actor_lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                     factor=0.5,
+                                                     min_lr=1e-5,
+                                                     patience=500,
+                                                     threshold=0.1,
+                                                     verbose=True)
 
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
                               envs.observation_space.shape, envs.action_space,
@@ -144,8 +150,11 @@ def main():
             expert)
 
         optimizer.zero_grad()
+
         imitation_loss.backward()
+
         optimizer.step()
+        scheduler.step(imitation_loss)
 
         results = {
             'imitation loss': imitation_loss,

@@ -12,6 +12,9 @@ NUM_EVAL_EPISODES = 10
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
+    if env_args.fix_job_sequence:
+        NUM_EVAL_EPISODES = 1
+
     returns = benchmark_heuristic([LeastWorkAgent(),
                                    ShortestProcessingTimeAgent(
                                        env_args.load_balance_service_rates),
@@ -27,8 +30,9 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
     # benchmark heuristic
     # least_work
     eval_envs = make_vec_envs(env_name=env_name,
-                              seed=seed + num_processes,
-                              num_processes=num_processes,
+                              seed=seed if env_args.fix_job_sequence
+                              else seed + num_processes,
+                              num_processes=1 if env_args.fix_job_sequence else num_processes,
                               log_dir=eval_log_dir,
                               device=device,
                               allow_early_resets=True,
@@ -103,8 +107,10 @@ def benchmark_heuristic(agents, **kwargs):
     ret = {}
     for agent in agents:
         envs = make_vec_envs(env_name=kwargs['env_name'],
-                             seed=kwargs['seed'] + kwargs['num_processes'],
-                             num_processes=kwargs['num_processes'],
+                             seed=kwargs['seed'] if kwargs['args'].fix_job_sequence else
+                             kwargs['seed'] + kwargs['num_processes'],
+                             num_processes=1 if kwargs['args'].fix_job_sequence else
+                             kwargs['num_processes'],
                              log_dir=kwargs['log_dir'],
                              device=kwargs['device'],
                              allow_early_resets=True,
