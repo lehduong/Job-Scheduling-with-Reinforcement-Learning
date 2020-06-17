@@ -174,7 +174,7 @@ def get_args():
         '--load-balance-service-rates',
         default=[0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05],
         nargs='+',
-        type=int,
+        type=float,
         help='Service rates of each servers of load balance environment')
     parser.add_argument(
         '--num-curriculum-time',

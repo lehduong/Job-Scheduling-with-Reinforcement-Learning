@@ -86,8 +86,7 @@ def main():
     actor_critic.to(device)
 
     optimizer = Adam(
-        chain(actor_critic.base.actor.parameters(),
-              actor_critic.dist.parameters()),
+        chain(actor_critic.parameters()),
         args.actor_lr)
 
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
@@ -105,50 +104,10 @@ def main():
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
 
-    # the gradient update interval to increase number of stream jobs
-    curriculum_interval = int(num_updates / args.num_curriculum_time)
+    expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
 
     for j in range(num_updates):
-
-        # if using load_balance environment: \
-        # we have to gradually increase number of stream jos
-        if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
-            args.num_stream_jobs = int(
-                args.num_stream_jobs * args.num_stream_jobs_factor)
-
-            # reconstruct environments to increase the number of stream jobs
-            # also alter the random seed
-            if not args.use_proper_time_limits:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=args.seed + j,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=False,
-                                     args=args)
-            else:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=args.seed + j,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=True,
-                                     max_episode_steps=args.max_episode_steps,
-                                     args=args)
-
-            print("Increase the number of stream jobs to " +
-                  str(args.num_stream_jobs))
-            obs = envs.reset()
-            rollouts.obs[0].copy_(obs)
-            rollouts.to(device)
-
-        # decrease learning rate linearly
-        if args.use_linear_lr_decay:
-            cur_lr = utils.update_linear_schedule(
-                optimizer, j, num_updates,
-                optimizer.lr if args.algo == "acktr" else args.actor_lr)
-        else:
-            cur_lr = optimizer.param_groups[0]["lr"]
+        random_seed = args.seed if args.fix_job_sequence else args.seed + j
 
         # Rolling out, collecting and storing SARS (State, action, reward, new state)
         for step in range(args.num_steps):
@@ -177,7 +136,6 @@ def main():
         obs_shape = rollouts.obs.size()[2:]
 
         # imitation learning
-        expert = LeastWorkAgent()
         imitation_loss, accuracy = actor_critic.imitation_learning(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[0].view(
@@ -215,12 +173,11 @@ def main():
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
             print("="*90)
-            print("Updates {}, num timesteps {}, FPS {}, LR: {}"
+            print("Updates {}, num timesteps {}, FPS {}"
                   "\n=> Last {} training episodes: mean/median reward "
                   "{:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}".format(
                       j, total_num_steps,
                       int(total_num_steps / (end - start)),
-                      cur_lr,
                       len(episode_rewards), np.mean(episode_rewards),
                       np.median(episode_rewards), np.min(episode_rewards),
                       np.max(episode_rewards)))
@@ -238,7 +195,7 @@ def main():
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            eval_results = evaluate(actor_critic, args.env_name, args.seed + j,
+            eval_results = evaluate(actor_critic, args.env_name, random_seed,
                                     args.num_processes, eval_log_dir, device, env_args=args)
             writer.add_scalars(
                 'eval/reward',

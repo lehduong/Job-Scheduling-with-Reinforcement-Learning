@@ -137,7 +137,7 @@ def main():
     curriculum_interval = int(num_updates / args.num_curriculum_time)
 
     for j in range(num_updates):
-
+        random_seed = args.seed if args.fix_job_sequence else args.seed + j
         # if using load_balance environment: \
         # we have to gradually increase number of stream jos
         if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
@@ -148,7 +148,7 @@ def main():
             # also alter the random seed
             if not args.use_proper_time_limits:
                 envs = make_vec_envs(env_name=args.env_name,
-                                     seed=args.seed + j,
+                                     seed=random_seed,
                                      num_processes=args.num_processes,
                                      log_dir=log_dir,
                                      device=device,
@@ -156,7 +156,7 @@ def main():
                                      args=args)
             else:
                 envs = make_vec_envs(env_name=args.env_name,
-                                     seed=args.seed + j,
+                                     seed=random_seed,
                                      num_processes=args.num_processes,
                                      log_dir=log_dir,
                                      device=device,
@@ -246,13 +246,13 @@ def main():
                 result_str = result_str + "{}: {:.2f} ".format(k, v)
             print(result_str)
 
-        writer.add_scalar("train/reward", np.mean(episode_rewards), j)
+            writer.add_scalar("train/reward", np.mean(episode_rewards), j)
 
         # EVALUATE performance of learned policy along with heuristic
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            eval_results = evaluate(actor_critic, args.env_name, args.seed + j,
+            eval_results = evaluate(actor_critic, args.env_name, random_seed,
                                     args.num_processes, eval_log_dir, device, env_args=args)
             writer.add_scalars(
                 'eval/reward',
