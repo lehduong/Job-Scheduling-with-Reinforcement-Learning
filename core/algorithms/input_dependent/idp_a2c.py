@@ -7,6 +7,8 @@ from itertools import chain
 from core.algorithms.a2c_acktr import A2C_ACKTR
 from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
 
+DECAY_RATE = 0.999
+
 
 class MetaInputDependentA2C(A2C_ACKTR):
     """
@@ -17,24 +19,28 @@ class MetaInputDependentA2C(A2C_ACKTR):
                  actor_critic,
                  value_loss_coef,
                  entropy_coef,
-                 critic_lr=1e-3,
-                 actor_lr=1e-3,
+                 lr=1e-3,
                  eps=None,
                  alpha=None,
                  max_grad_norm=None,
                  acktr=False,
-                 expert=None):
+                 expert=None,
+                 il=10):
         super().__init__(actor_critic, value_loss_coef, entropy_coef,
-                         actor_lr, eps, alpha, max_grad_norm, acktr)
-        self.meta_optimizer = optim.Adam(
+                         lr, eps, alpha, max_grad_norm, acktr)
+        self.critic_optimizer = optim.Adam(
             chain(actor_critic.base.critic.parameters(),
                   actor_critic.base.gru.parameters()),
-            critic_lr)
-        self.optimizer = optim.Adam(
+            lr)
+        self.actor_optimizer = optim.Adam(
             chain(actor_critic.base.actor.parameters(),
                   actor_critic.dist.parameters()),
-            actor_lr)
+            lr)
+
+        del self.optimizer
+
         self.expert = expert
+        self.il_coef = il
 
     def adapt_and_predict(self, rollouts):
         """
@@ -112,10 +118,10 @@ class MetaInputDependentA2C(A2C_ACKTR):
             hooks.append(v.register_hook(get_closure()))
 
         # compute grad for curr step
-        self.meta_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
         loss.backward()
         #nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
-        self.meta_optimizer.step()
+        self.critic_optimizer.step()
 
         for h in hooks:
             h.remove()
@@ -124,8 +130,6 @@ class MetaInputDependentA2C(A2C_ACKTR):
         obs_shape = rollouts.obs.size()[2:]
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
-
-        values, value_loss = self.adapt_and_predict(rollouts)
 
         # imitation learning
         imitation_loss, accuracy = 0, 0
@@ -138,6 +142,8 @@ class MetaInputDependentA2C(A2C_ACKTR):
                 self.expert)
         # -----------------------------------------------------
 
+        # action loss + entropy loss
+        values, value_loss = self.adapt_and_predict(rollouts)
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[0].view(
@@ -151,31 +157,20 @@ class MetaInputDependentA2C(A2C_ACKTR):
         advantages = rollouts.returns[:-1] - values
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
-        if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
-            # Compute fisher, see Martens 2014
-            self.actor_critic.zero_grad()
-            pg_fisher_loss = -action_log_probs.mean()
+        self.actor_optimizer.zero_grad()
 
-            value_noise = torch.randn(values.size())
-            if values.is_cuda:
-                value_noise = value_noise.cuda()
+        # total loss
+        loss = action_loss + self.il_coef * \
+            imitation_loss - self.entropy_coef * dist_entropy
+        loss.backward()
 
-            sample_values = values + value_noise
-            vf_fisher_loss = -(values - sample_values.detach()).pow(2).mean()
+        nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
+                                 self.max_grad_norm)
 
-            fisher_loss = pg_fisher_loss + vf_fisher_loss
-            self.optimizer.acc_stats = True
-            fisher_loss.backward(retain_graph=True)
-            self.optimizer.acc_stats = False
+        self.actor_optimizer.step()
 
-        self.optimizer.zero_grad()
-        (action_loss + imitation_loss - self.entropy_coef*dist_entropy).backward()
-
-        if self.acktr == False:
-            nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
-                                     self.max_grad_norm)
-
-        self.optimizer.step()
+        # reduce the weight of imitation learning during training process
+        self.il_coef = self.il_coef * DECAY_RATE
 
         return {
             'value loss': value_loss,

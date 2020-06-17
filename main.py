@@ -83,7 +83,10 @@ def main():
     actor_critic.to(device)
 
     # expert for imitation learning
-    expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+    if args.use_imitation_learning:
+        expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+    else:
+        expert = None
 
     if args.algo == 'a2c':
         agent = algorithms.A2C_ACKTR(
@@ -113,12 +116,12 @@ def main():
             actor_critic,
             args.value_loss_coef,
             args.entropy_coef,
-            critic_lr=args.critic_lr,
-            actor_lr=args.actor_lr,
+            lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
             max_grad_norm=args.max_grad_norm,
-            expert=expert
+            expert=expert,
+            il=args.il_coef
         )
     else:
         raise ValueError("Not Implemented algorithm...")
@@ -178,10 +181,13 @@ def main():
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
             cur_lr = utils.update_linear_schedule(
-                agent.optimizer, j, num_updates,
-                agent.optimizer.lr if args.algo == "acktr" else args.lr)
+                agent.actor_optimizer, j, num_updates,
+                agent.actor_optimizer.lr if args.algo == "acktr" else args.lr)
+            cur_lr = utils.update_linear_schedule(
+                agent.critic_optimizer, j, num_updates,
+                agent.critic_optimizer.lr if args.algo == "acktr" else args.lr)
         else:
-            cur_lr = agent.optimizer.param_groups[0]["lr"]
+            cur_lr = agent.actor_optimizer.param_groups[0]["lr"]
 
         # Rolling out, collecting and storing SARS (State, action, reward, new state)
         for step in range(args.num_steps):

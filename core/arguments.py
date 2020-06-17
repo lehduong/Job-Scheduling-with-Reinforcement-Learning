@@ -144,13 +144,25 @@ def get_args():
     parser.add_argument(
         '--recurrent-policy',
         action='store_true',
-        default=True,
+        default=False,
         help='use a recurrent policy')
     parser.add_argument(
         '--use-linear-lr-decay',
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
+
+    # IMITATION LEARNING
+    parser.add_argument(
+        '--use-imitation-learning',
+        action='store_true',
+        default=False,
+        help='if True then apply imitation learning during training')
+    parser.add_argument(
+        '--il-coef',
+        type=float,
+        default=10,
+        help='coefficient of imitation learning (default: 10)')
 
     # META INPUT-DEPENDENT BASELINE
     parser.add_argument(
