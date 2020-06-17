@@ -12,18 +12,18 @@ class MLPBase(NNBase):
                                   constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
+            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
         )
 
         if recurrent:
             num_inputs = hidden_size
 
         self.critic = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
-            nn.Linear(hidden_size, 1))
+            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
 
         self.train()
 

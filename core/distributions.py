@@ -69,8 +69,13 @@ class Categorical(nn.Module):
             gain=0.01)
 
         self.linear = nn.Sequential(
-            nn.Linear(num_inputs, num_outputs)
+            init_(nn.Linear(num_inputs, num_outputs))
         )
+
+        # hack
+        # The weight of last layer will be initialized 100 times smaller than regular layer
+        # according to Sec 3.2 https://arxiv.org/abs/2006.05990
+        self.linear[0].weight.data = self.linear[0].weight.data*0.01
 
     def forward(self, x):
         x = self.linear(x)
