@@ -56,7 +56,9 @@ def make_env(env_id,
                                                     args.job_size_norm_factor,
                                                     args.server_load_norm_factor,
                                                     args.highest_server_obs,
-                                                    args.highest_job_obs
+                                                    args.highest_job_obs,
+                                                    args.elapsed_time_norm_factor,
+                                                    args.highest_elapsed_time
                                                     )
                 # normalize reward
                 env = RewardNormalize(env, args.reward_norm_factor)

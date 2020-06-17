@@ -209,6 +209,11 @@ def get_args():
         type=float,
         help='normalize factor of server load in load balance env (default: 50)')
     parser.add_argument(
+        '--elapsed-time-norm-factor',
+        default=1,
+        type=float,
+        help='normalize factor of elapsed time between 2 consecutive events in load balance env (default: 55)')
+    parser.add_argument(
         '--highest-server-obs',
         default=2000,
         type=float,
@@ -218,6 +223,11 @@ def get_args():
         default=1000,
         type=float,
         help='Clip job having greater size than this value in load balance environment (default: 1000)')
+    parser.add_argument(
+        '--highest-elapsed-time',
+        default=1000,
+        type=float,
+        help='Clip elapsed time longer than this value in load balance environment (default: 1000)')
     parser.add_argument(
         '--reward-norm-factor',
         default=10000,

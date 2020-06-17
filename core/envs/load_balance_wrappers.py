@@ -11,20 +11,33 @@ class ProcessLoadBalanceObservation(gym.ObservationWrapper):
         :param highest_job_obs: float - clip the job (in observation) having size greater than this value
     """
 
-    def __init__(self, env, job_size_norm_factor, server_load_norm_factor, highest_server_obs, highest_job_obs):
+    def __init__(self,
+                 env,
+                 job_size_norm_factor,
+                 server_load_norm_factor,
+                 highest_server_obs,
+                 highest_job_obs,
+                 elapsed_time_norm_factor,
+                 highest_elapsed_time):
         super().__init__(env)
         self.job_size_norm_factor = job_size_norm_factor
         self.server_load_norm_factor = server_load_norm_factor
+        self.elapsed_time_norm_factor = elapsed_time_norm_factor
         self.highest_server_obs = highest_server_obs
         self.highest_job_obs = highest_job_obs
+        self.highest_elapsed_time = highest_elapsed_time
 
         # compute clip threshold
         num_server = len(env.servers)
         self.threshold = np.array(
-            [self.highest_server_obs]*num_server+[self.highest_job_obs])
+            [self.highest_server_obs] * num_server +
+            [self.highest_job_obs] +
+            [self.highest_elapsed_time])
         # compute the normalize vector
         self.norm_vec = np.array(
-            [self.server_load_norm_factor]*num_server+[self.job_size_norm_factor])
+            [self.server_load_norm_factor] * num_server +
+            [self.job_size_norm_factor] +
+            [self.elapsed_time_norm_factor])
 
     def observation(self, observation):
         # normalized
