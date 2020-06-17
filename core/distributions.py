@@ -69,10 +69,6 @@ class Categorical(nn.Module):
             gain=0.01)
 
         self.linear = nn.Sequential(
-            nn.Linear(num_inputs, num_inputs),
-            nn.ReLU(),
-            nn.Linear(num_inputs, num_inputs),
-            nn.ReLU(),
             nn.Linear(num_inputs, num_outputs)
         )
 

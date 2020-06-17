@@ -12,8 +12,8 @@ NUM_EVAL_EPISODES = 10
 
 def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
              device, env_args=None):
-    if env_args.fix_job_sequence:
-        NUM_EVAL_EPISODES = 1
+    seed = seed if env_args.fix_job_sequence else seed + num_processes
+    num_processes = 1 if env_args.fix_job_sequence else num_processes
 
     returns = benchmark_heuristic([LeastWorkAgent(),
                                    ShortestProcessingTimeAgent(
@@ -30,9 +30,8 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
     # benchmark heuristic
     # least_work
     eval_envs = make_vec_envs(env_name=env_name,
-                              seed=seed if env_args.fix_job_sequence
-                              else seed + num_processes,
-                              num_processes=1 if env_args.fix_job_sequence else num_processes,
+                              seed=seed,
+                              num_processes=num_processes,
                               log_dir=eval_log_dir,
                               device=device,
                               allow_early_resets=True,
@@ -45,8 +44,6 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
         num_processes, actor_critic.recurrent_hidden_state_size, device=device)
     eval_masks = torch.zeros(num_processes, 1, device=device)
 
-    # TODO: Deterministic configuration results in much worse performance \
-    # compare to non-deterministic one
     while len(eval_episode_rewards) < NUM_EVAL_EPISODES:
         with torch.no_grad():
             _, action, _, eval_recurrent_hidden_states = actor_critic.act(
@@ -107,10 +104,8 @@ def benchmark_heuristic(agents, **kwargs):
     ret = {}
     for agent in agents:
         envs = make_vec_envs(env_name=kwargs['env_name'],
-                             seed=kwargs['seed'] if kwargs['args'].fix_job_sequence else
-                             kwargs['seed'] + kwargs['num_processes'],
-                             num_processes=1 if kwargs['args'].fix_job_sequence else
-                             kwargs['num_processes'],
+                             seed=kwargs['seed'],
+                             num_processes=kwargs['num_processes'],
                              log_dir=kwargs['log_dir'],
                              device=kwargs['device'],
                              allow_early_resets=True,
