@@ -22,7 +22,8 @@ class MetaInputDependentA2C(A2C_ACKTR):
                  eps=None,
                  alpha=None,
                  max_grad_norm=None,
-                 acktr=False):
+                 acktr=False,
+                 expert=None):
         super().__init__(actor_critic, value_loss_coef, entropy_coef,
                          actor_lr, eps, alpha, max_grad_norm, acktr)
         self.meta_optimizer = optim.Adam(
@@ -33,6 +34,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
             chain(actor_critic.base.actor.parameters(),
                   actor_critic.dist.parameters()),
             actor_lr)
+        self.expert = expert
 
     def adapt_and_predict(self, rollouts):
         """
@@ -126,13 +128,14 @@ class MetaInputDependentA2C(A2C_ACKTR):
         values, value_loss = self.adapt_and_predict(rollouts)
 
         # imitation learning
-        expert = ShortestProcessingTimeAgent()
-        imitation_loss, accuracy = self.actor_critic.imitation_learning(
-            rollouts.obs[:-1].view(-1, *obs_shape),
-            rollouts.recurrent_hidden_states[0].view(
-                -1, self.actor_critic.recurrent_hidden_state_size),
-            rollouts.masks[:-1].view(-1, 1),
-            expert)
+        imitation_loss, accuracy = 0, 0
+        if self.expert:
+            imitation_loss, accuracy = self.actor_critic.imitation_learning(
+                rollouts.obs[:-1].view(-1, *obs_shape),
+                rollouts.recurrent_hidden_states[0].view(
+                    -1, self.actor_critic.recurrent_hidden_state_size),
+                rollouts.masks[:-1].view(-1, 1),
+                self.expert)
         # -----------------------------------------------------
 
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(

@@ -7,6 +7,7 @@ import os.path as osp
 from collections import deque
 from core import algorithms, utils
 from core.agents import Policy, MetaInputDependentPolicy
+from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
 from core.arguments import get_args
 from core.envs import make_vec_envs
 from core.storage import RolloutStorage
@@ -81,6 +82,9 @@ def main():
         actor_critic = torch.load(args.resume_dir, map_location='cpu')[0]
     actor_critic.to(device)
 
+    # expert for imitation learning
+    expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+
     if args.algo == 'a2c':
         agent = algorithms.A2C_ACKTR(
             actor_critic,
@@ -113,7 +117,8 @@ def main():
             actor_lr=args.actor_lr,
             eps=args.eps,
             alpha=args.alpha,
-            max_grad_norm=args.max_grad_norm
+            max_grad_norm=args.max_grad_norm,
+            expert=expert
         )
     else:
         raise ValueError("Not Implemented algorithm...")
