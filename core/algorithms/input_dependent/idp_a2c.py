@@ -132,7 +132,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
         num_steps, num_processes, _ = rollouts.rewards.size()
 
         # imitation learning
-        imitation_loss, accuracy = 0, 0
+        imitation_loss, accuracy = torch.tensor(0), 0
         if self.expert:
             imitation_loss, accuracy = self.actor_critic.imitation_learning(
                 rollouts.obs[:-1].view(-1, *obs_shape),
