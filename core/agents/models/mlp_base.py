@@ -15,7 +15,7 @@ class MLPBase(NNBase):
             nn.Linear(num_inputs, hidden_size), nn.ReLU(),
             nn.Linear(hidden_size, hidden_size), nn.ReLU(),
             nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size))
+            nn.Linear(hidden_size, hidden_size), nn.ReLU())
 
         if recurrent:
             num_inputs = hidden_size
