@@ -20,9 +20,9 @@ class MLPBase(NNBase):
             num_inputs = hidden_size
 
         self.critic = nn.Sequential(
-            nn.Linear(num_inputs, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+            nn.Linear(num_inputs, hidden_size), nn.Tanh(),
+            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
+            nn.Linear(hidden_size, hidden_size), nn.Tanh(),
             nn.Linear(hidden_size, 1))
 
         self.train()
