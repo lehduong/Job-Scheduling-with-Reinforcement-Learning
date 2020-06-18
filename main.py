@@ -7,7 +7,8 @@ import os.path as osp
 from collections import deque
 from core import algorithms, utils
 from core.agents import Policy, MetaInputDependentPolicy
-from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
+from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent, \
+    EarliestCompletionTimeAgent
 from core.arguments import get_args
 from core.envs import make_vec_envs
 from core.storage import RolloutStorage
@@ -84,7 +85,7 @@ def main():
 
     # expert for imitation learning
     if args.use_imitation_learning:
-        expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+        expert = EarliestCompletionTimeAgent(args.load_balance_service_rates)
     else:
         expert = None
 
