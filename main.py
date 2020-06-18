@@ -181,13 +181,10 @@ def main():
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
             cur_lr = utils.update_linear_schedule(
-                agent.actor_optimizer, j, num_updates,
-                agent.actor_optimizer.lr if args.algo == "acktr" else args.lr)
-            cur_lr = utils.update_linear_schedule(
-                agent.critic_optimizer, j, num_updates,
-                agent.critic_optimizer.lr if args.algo == "acktr" else args.lr)
+                agent.optimizer, j, num_updates,
+                agent.optimizer.lr if args.algo == "acktr" else args.lr)
         else:
-            cur_lr = agent.actor_optimizer.param_groups[0]["lr"]
+            cur_lr = agent.optimizer.param_groups[0]["lr"]
 
         # Rolling out, collecting and storing SARS (State, action, reward, new state)
         for step in range(args.num_steps):

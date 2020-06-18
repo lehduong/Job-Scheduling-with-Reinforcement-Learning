@@ -28,14 +28,9 @@ class MetaInputDependentA2C(A2C_ACKTR):
                  il=10):
         super().__init__(actor_critic, value_loss_coef, entropy_coef,
                          lr, eps, alpha, max_grad_norm, acktr)
-        self.critic_optimizer = optim.Adam(
+        self.optimizer = optim.Adam(
             actor_critic.parameters(),
             lr)
-        self.actor_optimizer = optim.Adam(
-            actor_critic.parameters(),
-            lr)
-
-        del self.optimizer
 
         self.expert = expert
         self.il_coef = il
@@ -116,10 +111,10 @@ class MetaInputDependentA2C(A2C_ACKTR):
             hooks.append(v.register_hook(get_closure()))
 
         # compute grad for curr step
-        self.critic_optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss.backward()
         # nn.utils.clip_grad_norm_(self.actor_critic.base.critic.parameters(), self.max_grad_norm)
-        self.critic_optimizer.step()
+        self.optimizer.step()
 
         for h in hooks:
             h.remove()
@@ -155,7 +150,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
                 self.expert)
         # -----------------------------------------------------
 
-        self.actor_optimizer.zero_grad()
+        self.optimizer.zero_grad()
 
         # total loss
         loss = action_loss + self.il_coef * \
@@ -165,7 +160,7 @@ class MetaInputDependentA2C(A2C_ACKTR):
         nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                  self.max_grad_norm)
 
-        self.actor_optimizer.step()
+        self.optimizer.step()
 
         # reduce the weight of imitation learning during training process
         self.il_coef = self.il_coef * DECAY_RATE
