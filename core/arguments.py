@@ -6,7 +6,7 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
-        '--algo', default='idp_a2c', help='algorithm to use: a2c | ppo | acktr')
+        '--algo', default='mib_a2c', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
@@ -69,7 +69,7 @@ def get_args():
         '--num-steps',
         type=int,
         default=100,
-        help='number of forward steps in A2C (default: 20)')
+        help='number of forward steps in A2C (default: 100)')
     parser.add_argument(
         '--ppo-epoch',
         type=int,
@@ -248,9 +248,9 @@ def get_args():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr', 'idp_a2c']
+    assert args.algo in ['a2c', 'ppo', 'acktr', 'mib_a2c', 'mib_ppo']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo', 'idp_a2c'], \
+        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args

@@ -16,8 +16,7 @@ class MIB_PPO(ActorMetaCriticAlgo):
                  lr=None,
                  adapt_lr=None,
                  num_inner_steps=5,
-                 max_grad_norm=None,
-                 use_clipped_value_loss=True):
+                 max_grad_norm=None):
 
         super().__init__(actor_critic, lr, adapt_lr, num_inner_steps)
 
@@ -25,7 +24,6 @@ class MIB_PPO(ActorMetaCriticAlgo):
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
         self.num_mini_batch = num_mini_batch
-        self.use_clipped_value_loss = use_clipped_value_loss
 
         self.entropy_coef = entropy_coef
         self.max_grad_norm = max_grad_norm
@@ -36,7 +34,8 @@ class MIB_PPO(ActorMetaCriticAlgo):
         num_steps, num_processes, _ = rollouts.rewards.size()
 
         # action loss + entropy loss
-        value_preds, value_loss = self.train_meta_critic_and_predict_values(rollouts)
+        value_preds, value_loss = self.train_meta_critic_and_predict_values(
+            rollouts)
         _, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
             rollouts.obs[:-1].view(-1, *obs_shape),
             rollouts.recurrent_hidden_states[0].view(
@@ -46,12 +45,13 @@ class MIB_PPO(ActorMetaCriticAlgo):
 
         value_preds = value_preds.view(num_steps, num_processes, 1)
 
-        advantages = rollouts.returns[:-1] - value_preds[:-1]
+        advantages = rollouts.returns[:-1] - value_preds
         # lehduong: Implementation details: normalized the advantage values
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
 
-        value_loss_epoch = 0
+        advantages = advantages.detach()
+
         action_loss_epoch = 0
         dist_entropy_epoch = 0
 
@@ -65,7 +65,7 @@ class MIB_PPO(ActorMetaCriticAlgo):
 
             for sample in data_generator:
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
+                    _, _, masks_batch, old_action_log_probs_batch, \
                     adv_targ = sample
 
                 # Reshape to do in a single forward pass for all steps
@@ -80,34 +80,23 @@ class MIB_PPO(ActorMetaCriticAlgo):
                                     1.0 + self.clip_param) * adv_targ
                 action_loss = -torch.min(surr1, surr2).mean()
 
-                if self.use_clipped_value_loss:
-                    value_pred_clipped = value_preds_batch + \
-                        (value_preds - value_preds_batch).clamp(-self.clip_param,
-                                                                self.clip_param)
-                    value_losses = (value_preds - return_batch).pow(2)
-                    value_losses_clipped = (
-                        value_pred_clipped - return_batch).pow(2)
-                    value_loss = 0.5 * torch.max(value_losses,
-                                                 value_losses_clipped).mean()
-                else:
-                    value_loss = 0.5 * \
-                        (return_batch - value_preds).pow(2).mean()
-
                 self.optimizer.zero_grad()
-                (value_loss * self.value_loss_coef + action_loss -
-                 dist_entropy * self.entropy_coef).backward()
+                (action_loss - dist_entropy *
+                 self.entropy_coef).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()
 
-                value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
-        value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
+        return {
+            "value loss": value_loss,
+            "action loss": action_loss_epoch,
+            "entropy loss": dist_entropy_epoch
+        }

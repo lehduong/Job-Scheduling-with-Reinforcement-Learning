@@ -101,7 +101,7 @@ def main():
     elif args.algo == 'acktr':
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
-    elif args.algo == 'idp_a2c':
+    elif args.algo == 'mib_a2c':
         agent = algorithms.MIB_A2C(
             actor_critic,
             args.entropy_coef,
@@ -111,6 +111,18 @@ def main():
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il=args.il_coef
+        )
+    elif args.algo == 'mib_ppo':
+        agent = algorithms.MIB_PPO(
+            actor_critic=actor_critic,
+            clip_param=args.clip_param,
+            ppo_epoch=args.ppo_epoch,
+            num_mini_batch=args.num_mini_batch,
+            entropy_coef=args.entropy_coef,
+            lr=args.lr,
+            adapt_lr=args.adapt_lr,
+            num_inner_steps=args.num_inner_steps,
+            max_grad_norm=args.max_grad_norm
         )
     else:
         raise ValueError("Not Implemented algorithm...")
