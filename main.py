@@ -122,7 +122,9 @@ def main():
             lr=args.lr,
             adapt_lr=args.adapt_lr,
             num_inner_steps=args.num_inner_steps,
-            max_grad_norm=args.max_grad_norm
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il=args.il_coef
         )
     else:
         raise ValueError("Not Implemented algorithm...")

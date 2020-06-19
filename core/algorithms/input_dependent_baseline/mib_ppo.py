@@ -5,6 +5,8 @@ import torch.optim as optim
 
 from core.algorithms.input_dependent_baseline.base_meta_critic import ActorMetaCriticAlgo
 
+DECAY_RATE = 0.995
+
 
 class MIB_PPO(ActorMetaCriticAlgo):
     def __init__(self,
@@ -16,7 +18,9 @@ class MIB_PPO(ActorMetaCriticAlgo):
                  lr=None,
                  adapt_lr=None,
                  num_inner_steps=5,
-                 max_grad_norm=None):
+                 max_grad_norm=None,
+                 expert=None,
+                 il=10):
 
         super().__init__(actor_critic, lr, adapt_lr, num_inner_steps)
 
@@ -27,6 +31,9 @@ class MIB_PPO(ActorMetaCriticAlgo):
 
         self.entropy_coef = entropy_coef
         self.max_grad_norm = max_grad_norm
+
+        self.expert = expert
+        self.il_coef = il
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
@@ -54,6 +61,8 @@ class MIB_PPO(ActorMetaCriticAlgo):
 
         action_loss_epoch = 0
         dist_entropy_epoch = 0
+        imitation_loss_epoch = 0
+        accuracy_epoch = 0
 
         for _ in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
@@ -80,23 +89,41 @@ class MIB_PPO(ActorMetaCriticAlgo):
                                     1.0 + self.clip_param) * adv_targ
                 action_loss = -torch.min(surr1, surr2).mean()
 
+                # imitation learning
+                imitation_loss, accuracy = torch.tensor(0), 0
+                if self.expert:
+                    imitation_loss, accuracy = self.imitation_learning(
+                        rollouts.obs[:-1].view(-1, *obs_shape),
+                        rollouts.recurrent_hidden_states[0].view(
+                            -1, self.actor_critic.recurrent_hidden_state_size),
+                        rollouts.masks[:-1].view(-1, 1),
+                        self.expert)
+
                 self.optimizer.zero_grad()
-                (action_loss - dist_entropy *
-                 self.entropy_coef).backward()
+                (imitation_loss * self.il_coef + action_loss -
+                 dist_entropy * self.entropy_coef).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()
 
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
+                imitation_loss_epoch += imitation_loss.item()
+                accuracy_epoch += accuracy
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
+        imitation_loss_epoch /= num_updates
+        accuracy_epoch /= num_updates
+
+        self.il_coef *= DECAY_RATE
 
         return {
             "value loss": value_loss,
             "action loss": action_loss_epoch,
+            "imitation loss": imitation_loss_epoch,
+            "accuracy": accuracy_epoch,
             "entropy loss": dist_entropy_epoch
         }
