@@ -6,7 +6,7 @@ import os.path as osp
 
 from collections import deque
 from core import algorithms, utils
-from core.agents import Policy, MetaInputDependentPolicy
+from core.agents import Policy
 from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent, \
     EarliestCompletionTimeAgent
 from core.arguments import get_args
@@ -62,22 +62,11 @@ def main():
                              args=args)
 
     # create actor critic
-    if args.algo.startswith('idp'):
-        # actor critic for input-dependent baseline
-        # i.e. meta critic (and conventional actor)
-        actor_critic = MetaInputDependentPolicy(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy},
-            num_inner_steps=args.num_inner_steps,
-            adapt_lr=args.adapt_lr)
-    else:
-        # vanilla actor-critic
-        actor_critic = Policy(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy})
-
+    actor_critic = Policy(
+        envs.observation_space.shape,
+        envs.action_space,
+        base_kwargs={'recurrent': args.recurrent_policy})
+    # if the resume directory is provided, then directly load that checkpoint
     if args.resume_dir is not None:
         print("=> Resuming from checkpoint: {}".format(args.resume_dir))
         actor_critic = torch.load(args.resume_dir, map_location='cpu')[0]
@@ -113,13 +102,12 @@ def main():
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
     elif args.algo == 'idp_a2c':
-        agent = algorithms.MetaInputDependentA2C(
+        agent = algorithms.MIB_A2C(
             actor_critic,
-            args.value_loss_coef,
             args.entropy_coef,
             lr=args.lr,
-            eps=args.eps,
-            alpha=args.alpha,
+            adapt_lr=args.adapt_lr,
+            num_inner_steps=args.num_inner_steps,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il=args.il_coef

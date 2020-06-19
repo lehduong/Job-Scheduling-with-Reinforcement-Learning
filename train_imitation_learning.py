@@ -110,7 +110,7 @@ def main():
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
 
-    expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+    expert = LeastWorkAgent()
 
     for j in range(num_updates):
         random_seed = args.seed if args.fix_job_sequence else args.seed + j
