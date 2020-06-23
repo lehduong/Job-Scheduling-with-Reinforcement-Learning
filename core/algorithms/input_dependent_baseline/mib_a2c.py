@@ -56,6 +56,9 @@ class MIB_A2C(ActorMetaCriticAlgo):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        # Normalize advantages?
+        advantages = (advantages - advantages.mean())/(advantages.std() + 1e-5)
+
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
         # imitation learning
