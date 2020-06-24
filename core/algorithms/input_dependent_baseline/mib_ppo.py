@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 
-from core.algorithms.input_dependent_baseline.base_meta_critic import ActorMetaCriticAlgo
+from .base_meta_critic import ActorMetaCriticAlgo
 
 DECAY_RATE = 0.995
 

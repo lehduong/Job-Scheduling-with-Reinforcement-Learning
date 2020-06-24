@@ -129,6 +129,15 @@ def make_vec_envs(env_name,
     return envs
 
 
+def load_balance_states_to_inputs(states):
+    """
+        Transform states of LoadBalance Env to inputs sequences
+        :param states: torch.Tensor of shape T x N_processes x (Num_servers + 2)
+        :return: torch.Tensor of shape T x N_processes x 2
+    """
+    return states[:, :, -2:]
+
+
 # Checks whether done was caused my timit limits or not
 class TimeLimitMask(gym.Wrapper):
     def step(self, action):

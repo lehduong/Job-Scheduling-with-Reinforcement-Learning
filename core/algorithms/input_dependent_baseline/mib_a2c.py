@@ -1,12 +1,7 @@
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
-from itertools import chain
-from core.algorithms.a2c_acktr import A2C_ACKTR
-from core.algorithms.input_dependent_baseline.base_meta_critic import ActorMetaCriticAlgo
-from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
+from .base_meta_critic import ActorMetaCriticAlgo
 
 DECAY_RATE = 0.995
 

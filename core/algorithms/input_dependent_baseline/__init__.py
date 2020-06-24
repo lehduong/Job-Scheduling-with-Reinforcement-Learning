@@ -1,2 +1,3 @@
-from .mib_a2c import MIB_A2C
-from .mib_ppo import MIB_PPO
+from core.algorithms.input_dependent_baseline.mib_a2c import MIB_A2C
+from core.algorithms.input_dependent_baseline.mib_ppo import MIB_PPO
+from core.algorithms.input_dependent_baseline.base_meta_critic import ActorMetaCriticAlgo
