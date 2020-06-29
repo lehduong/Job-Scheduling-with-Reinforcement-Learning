@@ -51,8 +51,8 @@ class PPO():
 
             for sample in data_generator:
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                   value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
+                    adv_targ = sample
 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
@@ -68,7 +68,8 @@ class PPO():
 
                 if self.use_clipped_value_loss:
                     value_pred_clipped = value_preds_batch + \
-                        (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+                        (values - value_preds_batch).clamp(-self.clip_param,
+                                                           self.clip_param)
                     value_losses = (values - return_batch).pow(2)
                     value_losses_clipped = (
                         value_pred_clipped - return_batch).pow(2)
@@ -94,4 +95,8 @@ class PPO():
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
+        return {
+            "value loss": value_loss_epoch,
+            "action loss": action_loss_epoch,
+            "entropy loss": dist_entropy_epoch
+        }
