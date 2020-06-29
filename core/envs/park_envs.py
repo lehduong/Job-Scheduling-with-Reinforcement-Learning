@@ -73,7 +73,7 @@ def make_env(env_id,
             env = TimeLimitMask(env)
 
         # IMPORTANT: all environments used same random seed to repeat the input-process
-        if train:
+        if train and args.algo.startswith('mib'):
             env.seed(seed)
         else:
             env.seed(seed + rank)
