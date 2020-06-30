@@ -16,8 +16,6 @@ def evaluate(actor_critic, env_name, seed, num_processes, eval_log_dir,
     num_processes = 1 if env_args.fix_job_sequence else num_processes
 
     returns = benchmark_heuristic([LeastWorkAgent(),
-                                   ShortestProcessingTimeAgent(
-                                       env_args.load_balance_service_rates),
                                    RandomAllocateAgent(),
                                    EarliestCompletionTimeAgent(
                                        env_args.load_balance_service_rates)],

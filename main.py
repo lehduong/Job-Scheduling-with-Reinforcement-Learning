@@ -8,7 +8,7 @@ from collections import deque
 from core import algorithms, utils
 from core.agents import Policy
 from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent, \
-    EarliestCompletionTimeAgent
+    EarliestCompletionTimeAgent, LeastWorkAgent
 from core.arguments import get_args
 from core.envs import make_vec_envs
 from core.storage import RolloutStorage
@@ -74,7 +74,7 @@ def main():
 
     # expert for imitation learning
     if args.use_imitation_learning:
-        expert = EarliestCompletionTimeAgent(args.load_balance_service_rates)
+        expert = LeastWorkAgent()
     else:
         expert = None
 
@@ -86,7 +86,9 @@ def main():
             lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
-            max_grad_norm=args.max_grad_norm)
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef)
     elif args.algo == 'ppo':
         agent = algorithms.PPO(
             actor_critic,
@@ -97,7 +99,9 @@ def main():
             args.entropy_coef,
             lr=args.lr,
             eps=args.eps,
-            max_grad_norm=args.max_grad_norm)
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef)
     elif args.algo == 'acktr':
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)

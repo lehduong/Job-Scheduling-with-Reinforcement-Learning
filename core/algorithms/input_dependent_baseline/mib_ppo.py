@@ -51,7 +51,6 @@ class MIB_PPO(ActorMetaCriticAlgo):
         value_preds = value_preds.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - value_preds
-        # lehduong: Implementation details: normalized the advantage values
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
 

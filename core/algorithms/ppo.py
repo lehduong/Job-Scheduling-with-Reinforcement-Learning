@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from .base_algo import BaseAlgo
 
-class PPO():
+
+class PPO(BaseAlgo):
     def __init__(self,
                  actor_critic,
                  clip_param,
@@ -15,16 +17,14 @@ class PPO():
                  lr=None,
                  eps=None,
                  max_grad_norm=None,
-                 use_clipped_value_loss=True):
-
-        self.actor_critic = actor_critic
+                 use_clipped_value_loss=True,
+                 expert=None,
+                 il_coef=1):
+        super().__init__(actor_critic, lr, value_loss_coef, entropy_coef, expert, il_coef)
 
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
         self.num_mini_batch = num_mini_batch
-
-        self.value_loss_coef = value_loss_coef
-        self.entropy_coef = entropy_coef
 
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
@@ -32,14 +32,16 @@ class PPO():
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
     def update(self, rollouts):
+        obs_shape = rollouts.obs.size()[2:]
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
-        # lehduong: Implementation details: normalized the advantage values
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
 
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
+        imitation_loss_epoch = 0
+        accuracy_epoch = 0
 
         for e in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
@@ -78,8 +80,19 @@ class PPO():
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
 
+                # imitation learning
+                imitation_loss, accuracy = torch.tensor(
+                    0).to(action_loss.device), 0
+                if self.expert:
+                    imitation_loss, accuracy = self.imitation_learning(
+                        rollouts.obs[:-1].view(-1, *obs_shape),
+                        rollouts.recurrent_hidden_states[0].view(
+                            -1, self.actor_critic.recurrent_hidden_state_size),
+                        rollouts.masks[:-1].view(-1, 1),
+                        self.expert)
+
                 self.optimizer.zero_grad()
-                (value_loss * self.value_loss_coef + action_loss -
+                (imitation_loss * self.il_coef * self.value_coef + action_loss -
                  dist_entropy * self.entropy_coef).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
@@ -88,15 +101,23 @@ class PPO():
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
+                imitation_loss_epoch += imitation_loss.item()
+                accuracy_epoch += accuracy
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
+        imitation_loss_epoch /= num_updates
+        accuracy_epoch /= num_updates
+
+        self.il_coef *= self.IL_DECAY_RATE
 
         return {
             "value loss": value_loss_epoch,
             "action loss": action_loss_epoch,
-            "entropy loss": dist_entropy_epoch
+            "entropy loss": dist_entropy_epoch,
+            "imitation loss": imitation_loss_epoch,
+            "accuracy": accuracy_epoch
         }
