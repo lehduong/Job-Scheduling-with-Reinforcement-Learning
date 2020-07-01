@@ -1,1 +1,13 @@
-python main.py --num-stream-jobs 100 --num-process 16 --num-steps 500 --no-cuda --eval-interval 5 --log-interval 10 --seed 42 --recurrent-policy --num-inner-steps 2 --use-linear-lr-decay
+python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1\
+--num-curriculum-time 1 \
+--algo mib_ppo \
+--num-env-steps 20000000\
+--gamma 0.99\
+--eval-interval 50\
+--lr 0.0007\
+--num-mini-batch 16\
+--adapt-lr 1e-3\
+--num-inner-steps 25\
+--num-process 16 --num-steps 100 --log-interval 5 \
+--seed 40 --recurrent-policy --use-linear-lr-decay\
+--log-dir logs

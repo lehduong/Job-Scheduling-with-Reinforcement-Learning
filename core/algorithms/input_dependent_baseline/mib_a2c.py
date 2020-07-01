@@ -21,7 +21,7 @@ class MIB_A2C(ActorMetaCriticAlgo):
                  num_inner_steps=5,
                  max_grad_norm=None,
                  expert=None,
-                 il=10):
+                 il_coef=10):
         super().__init__(actor_critic=actor_critic,
                          lr=lr,
                          adapt_lr=adapt_lr,
@@ -30,7 +30,7 @@ class MIB_A2C(ActorMetaCriticAlgo):
         self.max_grad_norm = max_grad_norm
 
         self.expert = expert
-        self.il_coef = il
+        self.il_coef = il_coef
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]

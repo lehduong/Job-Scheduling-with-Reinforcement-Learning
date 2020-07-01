@@ -6,7 +6,7 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
-        '--algo', default='mib_a2c', help='algorithm to use: a2c | ppo | acktr')
+        '--algo', default='lacie_a2c', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
@@ -63,7 +63,7 @@ def get_args():
     parser.add_argument(
         '--num-processes',
         type=int,
-        default=16,
+        default=4,
         help='how many training CPU processes to use (default: 16)')
     parser.add_argument(
         '--num-steps',
@@ -248,7 +248,8 @@ def get_args():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr', 'mib_a2c', 'mib_ppo']
+    assert args.algo in ['a2c', 'ppo', 'acktr',
+                         'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo']
     if args.recurrent_policy:
         assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo'], \
             'Recurrent policy is not implemented for ACKTR'

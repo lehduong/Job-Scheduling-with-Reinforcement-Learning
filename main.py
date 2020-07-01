@@ -114,7 +114,7 @@ def main():
             num_inner_steps=args.num_inner_steps,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
-            il=args.il_coef
+            il_coef=args.il_coef
         )
     elif args.algo == 'mib_ppo':
         agent = algorithms.MIB_PPO(
@@ -128,7 +128,17 @@ def main():
             num_inner_steps=args.num_inner_steps,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
-            il=args.il_coef
+            il_coef=args.il_coef
+        )
+    elif args.algo == 'lacie_a2c':
+        agent = algorithms.LACIE_A2C(
+            actor_critic=actor_critic,
+            value_coef=args.value_loss_coef,
+            entropy_coef=args.entropy_coef,
+            lr=args.lr,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef
         )
     else:
         raise ValueError("Not Implemented algorithm...")
