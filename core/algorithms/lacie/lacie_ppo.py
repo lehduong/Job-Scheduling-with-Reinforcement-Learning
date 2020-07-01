@@ -43,7 +43,7 @@ class LACIE_PPO(LacieAlgo):
         obs_shape = rollouts.obs.size()[2:]
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
         advantages = self.compute_weighted_advantages(
-            rollouts, advantages)
+            rollouts, advantages.detach())
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
 

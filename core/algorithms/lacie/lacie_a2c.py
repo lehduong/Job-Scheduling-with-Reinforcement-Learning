@@ -54,7 +54,7 @@ class LACIE_A2C(LacieAlgo):
 
         # computed weighted advantage according to its dependency with input sequences
         weighted_advantages = self.compute_weighted_advantages(
-            rollouts, advantages)
+            rollouts, advantages.detach())
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()
 
         # imitation learning
