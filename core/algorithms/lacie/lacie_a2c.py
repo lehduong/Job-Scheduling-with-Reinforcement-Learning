@@ -57,7 +57,8 @@ class LACIE_A2C(LacieAlgo):
             rollouts, advantages)
 
         # imitation learning
-        imitation_loss, imitation_accuracy = torch.tensor(0), 0
+        imitation_loss, imitation_accuracy = torch.tensor(
+            0).to(rollouts.obs.device), 0
         if self.expert:
             imitation_loss, imitation_accuracy = self.imitation_learning(
                 rollouts.obs[:-1].view(-1, *obs_shape),

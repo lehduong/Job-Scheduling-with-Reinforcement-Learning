@@ -50,7 +50,7 @@ class A2C_ACKTR(BaseAlgo):
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
         # imitation learning
-        imitation_loss, accuracy = torch.tensor(0), 0
+        imitation_loss, accuracy = torch.tensor(0).to(rollouts.obs.device), 0
         if self.expert:
             imitation_loss, accuracy = self.imitation_learning(
                 rollouts.obs[:-1].view(-1, *obs_shape),
