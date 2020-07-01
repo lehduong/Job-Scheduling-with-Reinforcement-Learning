@@ -67,6 +67,8 @@ class LACIE_A2C(LacieAlgo):
                 self.expert)
 
         self.optimizer.zero_grad()
+        self.cpc_optimizer.zero_grad()
+
         (imitation_loss * self.il_coef + value_loss * self.value_coef + action_loss -
          dist_entropy * self.entropy_coef + contrastive_loss).backward()
 
@@ -74,6 +76,7 @@ class LACIE_A2C(LacieAlgo):
                                  self.max_grad_norm)
 
         self.optimizer.step()
+        self.cpc_optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
 
         return {

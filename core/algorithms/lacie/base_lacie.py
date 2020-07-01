@@ -2,6 +2,8 @@
     Implement the algorithm `Learning to Assign Credit in Input-Driven Environment'
 """
 from core.algorithms.base_algo import BaseAlgo
+from torch import optim
+from itertools import chain
 
 import torch
 import torch.nn as nn
@@ -47,6 +49,9 @@ class LacieAlgo(BaseAlgo):
         self.input_seq_encoder = nn.GRU(
             self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
+        self.cpc_optimizer = optim.Adam(chain(
+            self.advantage_encoder.parameters(), self.input_seq_encoder.parameters()), lr=lr)
+
         self.softmax = nn.Softmax(dim=0)
         self.log_softmax = nn.LogSoftmax(dim=0)
 
@@ -81,7 +86,7 @@ class LacieAlgo(BaseAlgo):
             density_ratio = torch.mm(input_seq[i], advantages[i])
             # accuracy
             correct += torch.sum(torch.eq(torch.argmax(self.softmax(
-                density_ratio)), torch.arange(0, n_processes).to(self.device)))
+                density_ratio), dim=1), torch.arange(0, n_processes).to(self.device)))
             # nce
             contrastive_loss += torch.sum(
                 torch.diag(self.log_softmax(density_ratio)))

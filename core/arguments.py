@@ -251,7 +251,7 @@ def get_args():
     assert args.algo in ['a2c', 'ppo', 'acktr',
                          'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo'], \
+        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args
