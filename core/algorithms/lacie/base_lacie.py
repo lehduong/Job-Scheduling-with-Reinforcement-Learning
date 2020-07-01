@@ -141,5 +141,7 @@ class LacieAlgo(BaseAlgo):
 
             weights *= n_processes
             weights = 1/(weights + EPS)
+            weights = torch.clamp(
+                weights, 0, weights.shape[1])  # clip to make weight in range [0: n_processes]
 
         return advantages*weights
