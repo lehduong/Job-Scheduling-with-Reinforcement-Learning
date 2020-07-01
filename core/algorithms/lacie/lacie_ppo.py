@@ -108,6 +108,7 @@ class LACIE_PPO(LacieAlgo):
                     rollouts, advantages)
 
                 self.optimizer.zero_grad()
+                self.cpc_optimizer.zero_grad()
                 (imitation_loss * self.il_coef * self.value_coef + action_loss -
                  dist_entropy * self.entropy_coef + contrastive_loss).backward()
                 nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
@@ -115,6 +116,7 @@ class LACIE_PPO(LacieAlgo):
                                                self.advantage_encoder.parameters()),
                                          self.max_grad_norm)
                 self.optimizer.step()
+                self.cpc_optimizer.step()
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
