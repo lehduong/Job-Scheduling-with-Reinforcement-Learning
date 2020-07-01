@@ -35,8 +35,7 @@ class LacieAlgo(BaseAlgo):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
         self.state_to_input_seq = state_to_input_seq
 
-        self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = next(self.actor_critic.parameters()).device
 
         # create linear function for each time step
         self.advantage_encoder = nn.Sequential(
