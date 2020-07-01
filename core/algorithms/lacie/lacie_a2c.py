@@ -48,14 +48,14 @@ class LACIE_A2C(LacieAlgo):
         advantages = rollouts.returns[:-1] - values
         value_loss = advantages.pow(2).mean()
 
+        # contrastive learning density ratio
+        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
+            rollouts, advantages)
+
         # computed weighted advantage according to its dependency with input sequences
         weighted_advantages = self.compute_weighted_advantages(
             rollouts, advantages)
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()
-
-        # contrastive learning density ratio
-        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
-            rollouts, advantages)
 
         # imitation learning
         imitation_loss, imitation_accuracy = torch.tensor(
