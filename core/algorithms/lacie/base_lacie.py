@@ -138,5 +138,6 @@ class LacieAlgo(BaseAlgo):
                 weights[i] = density_ratio
 
             weights *= n_processes
+            weights = 1/weights
 
         return advantages*weights
