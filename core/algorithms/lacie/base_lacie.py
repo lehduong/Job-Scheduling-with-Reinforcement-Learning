@@ -8,6 +8,8 @@ from itertools import chain
 import torch
 import torch.nn as nn
 
+EPS = 1e-7
+
 
 class LacieAlgo(BaseAlgo):
     """
@@ -138,6 +140,6 @@ class LacieAlgo(BaseAlgo):
                 weights[i] = density_ratio
 
             weights *= n_processes
-            weights = 1/weights
+            weights = 1/(weights + EPS)
 
         return advantages*weights

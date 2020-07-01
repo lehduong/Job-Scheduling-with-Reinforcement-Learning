@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from itertools import chain
 from .base_lacie import LacieAlgo
 
 
@@ -73,7 +74,9 @@ class LACIE_A2C(LacieAlgo):
         (imitation_loss * self.il_coef + value_loss * self.value_coef + action_loss -
          dist_entropy * self.entropy_coef + contrastive_loss).backward()
 
-        nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
+        nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
+                                       self.advantage_encoder.parameters(),
+                                       self.input_seq_encoder.parameters()),
                                  self.max_grad_norm)
 
         self.optimizer.step()
