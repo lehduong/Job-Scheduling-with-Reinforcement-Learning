@@ -1,13 +1,17 @@
-python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1\
+!python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1.05\
 --num-curriculum-time 1 \
---algo mib_ppo \
+--algo lacie_a2c \
 --num-env-steps 20000000\
---gamma 0.99\
+--gamma 0.97\
+--use-gae \
+--entropy-coef 0.001\
+--load-balance-service-rates 0.5 1.5 2.5 3.5 4.5 5.5 6.5 \
 --eval-interval 50\
+--reward-norm-factor 10000\
 --lr 0.0007\
---num-mini-batch 16\
+--num-mini-batch 32\
 --adapt-lr 1e-3\
---num-inner-steps 25\
---num-process 16 --num-steps 100 --log-interval 5 \
---seed 40 --recurrent-policy --use-linear-lr-decay\
+--num-inner-steps 5\
+--num-process 32 --num-steps 100 --log-interval 10 \
+--seed 26 --recurrent-policy --use-linear-lr-decay\
 --log-dir logs

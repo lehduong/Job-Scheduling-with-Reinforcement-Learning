@@ -71,6 +71,8 @@ class LacieAlgo(BaseAlgo):
         # encode the input sequence
         # n_steps x n_processes x hidden_dim
         input_seq, _ = self.input_seq_encoder(input_seq)
+        # reverse back
+        input_seq = torch.flip(input_seq, [0])
 
         # ADVANTAGES
         # encode
@@ -113,6 +115,8 @@ class LacieAlgo(BaseAlgo):
             # encode the input sequence
             # output shape: n_steps x n_processes x hidden_dim
             input_seq, _ = self.input_seq_encoder(input_seq)
+            # reverse back
+            input_seq = torch.flip(input_seq, [0])
 
             # ADVANTAGES
             # encode
