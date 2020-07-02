@@ -21,14 +21,16 @@ class LACIE_PPO(LacieAlgo):
                  max_grad_norm=None,
                  use_clipped_value_loss=True,
                  expert=None,
-                 il_coef=1):
+                 il_coef=1,
+                 num_cpc_steps=10):
         super().__init__(actor_critic=actor_critic,
                          lr=lr,
                          value_coef=value_loss_coef,
                          entropy_coef=entropy_coef,
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
-                         il_coef=il_coef)
+                         il_coef=il_coef,
+                         num_cpc_steps=num_cpc_steps)
 
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch

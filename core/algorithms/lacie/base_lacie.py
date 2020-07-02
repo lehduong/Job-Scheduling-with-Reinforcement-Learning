@@ -34,9 +34,11 @@ class LacieAlgo(BaseAlgo):
                  entropy_coef,
                  state_to_input_seq=None,
                  expert=None,
-                 il_coef=1):
+                 il_coef=1,
+                 num_cpc_steps=10):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
         self.state_to_input_seq = state_to_input_seq
+        self.num_cpc_steps = num_cpc_steps
 
         self.device = next(self.actor_critic.parameters()).device
 

@@ -20,14 +20,16 @@ class LACIE_A2C(LacieAlgo):
                  lr=1e-3,
                  max_grad_norm=None,
                  expert=None,
-                 il_coef=1):
+                 il_coef=1,
+                 num_cpc_steps=10):
         super().__init__(actor_critic=actor_critic,
                          lr=lr,
                          value_coef=value_coef,
                          entropy_coef=entropy_coef,
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
-                         il_coef=il_coef)
+                         il_coef=il_coef,
+                         num_cpc_steps=num_cpc_steps)
         self.max_grad_norm = max_grad_norm
 
     def update(self, rollouts):
@@ -51,6 +53,20 @@ class LACIE_A2C(LacieAlgo):
         # contrastive learning density ratio
         contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
             rollouts, advantages)
+        # learn cpc model
+        for _ in range(self.num_cpc_steps):
+            cpc_loss, _ = self.compute_contrastive_loss(
+                rollouts, advantages)
+
+            self.cpc_optimizer.zero_grad()
+            cpc_loss.backward()
+
+            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+                                           self.input_seq_encoder.parameters(),
+                                           self.state_encoder.parameters()),
+                                     self.max_grad_norm)
+
+            self.cpc_optimizer.step()
 
         # computed weighted advantage according to its dependency with input sequences
         weighted_advantages = self.compute_weighted_advantages(
@@ -69,10 +85,9 @@ class LACIE_A2C(LacieAlgo):
                 self.expert)
 
         self.optimizer.zero_grad()
-        self.cpc_optimizer.zero_grad()
 
         (imitation_loss * self.il_coef + value_loss * self.value_coef + action_loss -
-         dist_entropy * self.entropy_coef + contrastive_loss).backward()
+         dist_entropy * self.entropy_coef).backward()
 
         nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
                                        self.advantage_encoder.parameters(),
@@ -81,7 +96,6 @@ class LACIE_A2C(LacieAlgo):
                                  self.max_grad_norm)
 
         self.optimizer.step()
-        self.cpc_optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
 
         return {
