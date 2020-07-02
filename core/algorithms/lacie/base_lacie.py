@@ -87,7 +87,7 @@ class LacieAlgo(BaseAlgo):
 
         # INPUT SEQUENCES
         # the stochastic input will be defined by last 2 scalar
-        input_seq = rollouts.obs[:-1, :, -2:]
+        input_seq = rollouts.obs[1:, :, -2:]
         # reverse the input seq order since we want to compute from right to left
         input_seq = torch.flip(input_seq, [0])
         # encode the input sequence
@@ -145,7 +145,7 @@ class LacieAlgo(BaseAlgo):
 
             # INPUT SEQUENCES
             # the stochastic input will be defined by last 2 scalar
-            input_seq = rollouts.obs[:-1, :, -2:]
+            input_seq = rollouts.obs[1:, :, -2:]
             # reverse the input seq order since we want to compute from right to left
             input_seq = torch.flip(input_seq, [0])
             # encode the input sequence
