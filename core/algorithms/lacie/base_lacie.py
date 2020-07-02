@@ -190,6 +190,6 @@ class LacieAlgo(BaseAlgo):
             weights *= n_processes
             weights = torch.clamp(
                 weights, 1/WEIGHT_CLIP_THRESHOLD, WEIGHT_CLIP_THRESHOLD)
-            weights = 1/weightss
+            weights = 1/weights
 
         return advantages*weights
