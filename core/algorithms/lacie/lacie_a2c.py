@@ -76,7 +76,8 @@ class LACIE_A2C(LacieAlgo):
 
         nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
                                        self.advantage_encoder.parameters(),
-                                       self.input_seq_encoder.parameters()),
+                                       self.input_seq_encoder.parameters(),
+                                       self.state_encoder.parameters()),
                                  self.max_grad_norm)
 
         self.optimizer.step()

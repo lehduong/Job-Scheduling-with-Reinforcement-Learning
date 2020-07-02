@@ -39,19 +39,36 @@ class LacieAlgo(BaseAlgo):
 
         self.device = next(self.actor_critic.parameters()).device
 
-        # create linear function for each time step
+        # encoder for advantages
         self.advantage_encoder = nn.Sequential(
             nn.Linear(1, self.CPC_HIDDEN_DIM//2, bias=True),
             nn.ReLU(),
-            nn.Linear(self.CPC_HIDDEN_DIM//2, self.CPC_HIDDEN_DIM, bias=True)
+            nn.Linear(self.CPC_HIDDEN_DIM//2,
+                      self.CPC_HIDDEN_DIM//2, bias=True)
         ).to(self.device)
+
+        # encoder for states
+        # FIXME: hard code for 1D env
+        self.state_encoder = nn.Sequential(
+            nn.Linear(self.actor_critic.obs_shape[0],
+                      self.CPC_HIDDEN_DIM//2, bias=True),
+            nn.ReLU(),
+            nn.Linear(self.CPC_HIDDEN_DIM//2, self.CPC_HIDDEN_DIM//2)
+        )
 
         # input sequence encoder
         self.input_seq_encoder = nn.GRU(
             self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
-        self.cpc_optimizer = optim.Adam(chain(
-            self.advantage_encoder.parameters(), self.input_seq_encoder.parameters()), lr=lr)
+        # optimizer to learn the parameters for cpc loss
+        self.cpc_optimizer = optim.Adam(
+            chain(
+                self.advantage_encoder.parameters(),
+                self.input_seq_encoder.parameters(),
+                self.state_encoder.parameters()
+            ),
+            lr=lr
+        )
 
         self.softmax = nn.Softmax(dim=0)
         self.log_softmax = nn.LogSoftmax(dim=0)
@@ -78,15 +95,29 @@ class LacieAlgo(BaseAlgo):
 
         # ADVANTAGES
         # encode
-        # n_steps x hidden_dim x n_process
+        # n_steps  x n_process x hidden_dim/2
         advantages = self.advantage_encoder(
-            advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1).permute(0, 2, 1)
+            advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1)
+
+        # STATES
+        # encode
+        # n_steps x n_process x hidden_dim/2
+        states = rollouts.obs[:-1]
+        # FIXME: hard code for 1D env
+        states_shape = states.shape[2:][0]
+        states = self.state_encoder(
+            states.reshape(-1, states_shape)).reshape(num_steps, n_processes, self.CPC_HIDDEN_DIM//2)
+
+        # condition = STATE + ADVANTAGE
+        conditions = torch.cat([advantages, states], dim=-1)
+        # reshape to n_steps x hidden_dim x n_processes
+        conditions = conditions.permute(0, 2, 1)
 
         # compute nce
         contrastive_loss = 0
         correct = 0
         for i in range(num_steps):
-            density_ratio = torch.mm(input_seq[i], advantages[i])
+            density_ratio = torch.mm(input_seq[i], conditions[i])
             # accuracy
             correct += torch.sum(torch.eq(torch.argmax(self.softmax(
                 density_ratio), dim=1), torch.arange(0, n_processes).to(self.device)))
@@ -122,9 +153,23 @@ class LacieAlgo(BaseAlgo):
 
             # ADVANTAGES
             # encode
-            # output shape: n_steps x hidden_dim x n_process
+            # n_steps  x n_process x hidden_dim/2
             encoded_advantages = self.advantage_encoder(
-                advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1).permute(0, 2, 1)
+                advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1)
+
+            # STATES
+            # encode
+            # n_steps x n_process x hidden_dim/2
+            states = rollouts.obs[:-1]
+            # FIXME: hard code for 1D env
+            states_shape = states.shape[2:][0]
+            states = self.state_encoder(
+                states.reshape(-1, states_shape)).reshape(num_steps, n_processes, self.CPC_HIDDEN_DIM//2)
+
+            # condition = STATE + ADVANTAGE
+            conditions = torch.cat([encoded_advantages, states], dim=-1)
+            # reshape to n_steps x hidden_dim x n_processes
+            conditions = conditions.permute(0, 2, 1)
 
             # weight of each advantage score
             weights = torch.zeros((num_steps, n_processes, 1)).to(
@@ -133,7 +178,7 @@ class LacieAlgo(BaseAlgo):
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
-                    torch.mm(input_seq[i], encoded_advantages[i]))
+                    torch.mm(input_seq[i], conditions[i]))
                 # take the diag element
                 density_ratio = density_ratio.diag().reshape(n_processes, 1)
 
