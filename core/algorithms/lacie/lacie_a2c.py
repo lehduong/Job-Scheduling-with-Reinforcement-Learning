@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from itertools import chain
+from torch import optim
 from .base_lacie import LacieAlgo
 
 
@@ -16,6 +17,8 @@ class LACIE_A2C(LacieAlgo):
                  actor_critic,
                  value_coef,
                  entropy_coef,
+                 eps=None,
+                 alpha=None,
                  state_to_input_seq=None,
                  lr=1e-3,
                  max_grad_norm=None,
@@ -31,6 +34,8 @@ class LACIE_A2C(LacieAlgo):
                          il_coef=il_coef,
                          num_cpc_steps=num_cpc_steps)
         self.max_grad_norm = max_grad_norm
+        self.optimizer = optim.RMSprop(
+            actor_critic.parameters(), lr, eps=eps, alpha=alpha)
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
@@ -95,11 +100,7 @@ class LACIE_A2C(LacieAlgo):
         (imitation_loss * self.il_coef + value_loss * self.value_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
 
-        nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
-                                       self.advantage_encoder.parameters(),
-                                       self.input_seq_encoder.parameters(),
-                                       self.state_encoder.parameters(),
-                                       self.action_encoder.parameters()),
+        nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                  self.max_grad_norm)
 
         self.optimizer.step()

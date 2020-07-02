@@ -15,13 +15,13 @@ Learning to Assign Credit in Input-driven Environment (LACIE) reduce the varianc
 </p>
 
 ## Input-driven MDP
-Input-driven MDP are the Markov processes governed by not only agent's actions but also stochastic, exogeneous input processes [1]. These environments have high variance inheritantly making it hard to learn optimal policy.
+Input-driven MDP are the Markov processes governed by not only agent's actions but also stochastic, exogenous input processes [1]. These environments have high variance inheritantly making it hard to learn optimal policy.
 
-This is repository implement:
+This repository implemented:
 
 + Input-dependence baseline as in proposed in [1].
 
-+ Lacie - an algorithm that learn to weight the advantages of each rollout in hindsight with respect to future input sequences.
++ **Lacie** - an algorithm that learn to weight the advantages of each rollout in hindsight with respect to future input sequences.
 
 ## Install Dependencies
 

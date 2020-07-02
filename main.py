@@ -136,6 +136,8 @@ def main():
             value_coef=args.value_loss_coef,
             entropy_coef=args.entropy_coef,
             lr=args.lr,
+            eps=args.eps,
+            alpha=args.alpha,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il_coef=args.il_coef
