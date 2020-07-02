@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/logo.png" style="max-width:100px"/>
+<img src="assets/logo.png" width="300"/>
 <br>
 <a href="https://github.com/lehduong/Job-Scheduling-with-Reinforcement-Learning/blob/master/LICENSE">
     <img alt="GitHub" src="https://img.shields.io/github/license/lehduong/Job-Scheduling-with-Reinforcement-Learning">
