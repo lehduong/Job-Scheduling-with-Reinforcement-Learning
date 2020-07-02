@@ -54,7 +54,7 @@ class LacieAlgo(BaseAlgo):
                       self.CPC_HIDDEN_DIM//2, bias=True),
             nn.ReLU(),
             nn.Linear(self.CPC_HIDDEN_DIM//2, self.CPC_HIDDEN_DIM//2)
-        )
+        ).to(self.device)
 
         # input sequence encoder
         self.input_seq_encoder = nn.GRU(
