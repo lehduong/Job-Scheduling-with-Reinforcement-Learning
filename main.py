@@ -292,8 +292,9 @@ def main():
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            eval_results = evaluate(actor_critic, args.env_name, random_seed,
-                                    args.num_processes, eval_log_dir, device, env_args=args)
+            eval_results = evaluate(actor_critic, args.env_name, seed=args.seed,
+                                    num_processes=args.num_processes, eval_log_dir=eval_log_dir,
+                                    device=device, env_args=args)
             writer.add_scalars(
                 'eval/reward',
                 {k: np.mean(v) for k, v in eval_results.items()},
