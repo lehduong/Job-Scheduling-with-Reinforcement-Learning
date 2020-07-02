@@ -188,8 +188,8 @@ class LacieAlgo(BaseAlgo):
                 weights[i] = density_ratio
 
             weights *= n_processes
-            weights = 1/(weights + EPS)
             weights = torch.clamp(
-                weights, 0, WEIGHT_CLIP_THRESHOLD)  # clip to make weight in range [0: n_processes]
+                weights, 1/WEIGHT_CLIP_THRESHOLD, WEIGHT_CLIP_THRESHOLD)
+            weights = 1/weightss
 
         return advantages*weights
