@@ -25,7 +25,7 @@ class LacieAlgo(BaseAlgo):
                     T x N_processes x Obs_shape
     """
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 32
+    CPC_HIDDEN_DIM = 48
 
     def __init__(self,
                  actor_critic,
@@ -44,19 +44,27 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(1, self.CPC_HIDDEN_DIM//2, bias=True),
+            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
             nn.ReLU(),
-            nn.Linear(self.CPC_HIDDEN_DIM//2,
-                      self.CPC_HIDDEN_DIM//2, bias=True)
+            nn.Linear(self.CPC_HIDDEN_DIM//3,
+                      self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
 
         # encoder for states
         # FIXME: hard code for 1D env
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
-                      self.CPC_HIDDEN_DIM//2, bias=True),
+                      self.CPC_HIDDEN_DIM//3, bias=True),
             nn.ReLU(),
-            nn.Linear(self.CPC_HIDDEN_DIM//2, self.CPC_HIDDEN_DIM//2)
+            nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
+        ).to(self.device)
+
+        # encoder for action
+        self.action_encoder = nn.Sequential(
+            nn.Embedding(self.actor_critic.action_space.n,
+                         self.CPC_HIDDEN_DIM//3),
+            nn.ReLU(),
+            nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
         # input sequence encoder
@@ -109,10 +117,17 @@ class LacieAlgo(BaseAlgo):
         # FIXME: hard code for 1D env
         states_shape = states.shape[2:][0]
         states = self.state_encoder(
-            states.reshape(-1, states_shape)).reshape(num_steps, n_processes, self.CPC_HIDDEN_DIM//2)
+            states.reshape(-1, states_shape)).reshape(num_steps, n_processes, -1)
+
+        # ACTION
+        # encode
+        # n_steps x n_process x 1
+        actions = rollouts.actions
+        actions = self.action_encoder(
+            actions.reshape(-1)).reshape(num_steps, n_processes, -1)
 
         # condition = STATE + ADVANTAGE
-        conditions = torch.cat([advantages, states], dim=-1)
+        conditions = torch.cat([advantages, states, actions], dim=-1)
         # reshape to n_steps x hidden_dim x n_processes
         conditions = conditions.permute(0, 2, 1)
 
@@ -167,10 +182,18 @@ class LacieAlgo(BaseAlgo):
             # FIXME: hard code for 1D env
             states_shape = states.shape[2:][0]
             states = self.state_encoder(
-                states.reshape(-1, states_shape)).reshape(num_steps, n_processes, self.CPC_HIDDEN_DIM//2)
+                states.reshape(-1, states_shape)).reshape(num_steps, n_processes, -1)
+
+            # ACTION
+            # encode
+            # n_steps x n_process x 1
+            actions = rollouts.actions
+            actions = self.action_encoder(
+                actions.reshape(-1)).reshape(num_steps, n_processes, -1)
 
             # condition = STATE + ADVANTAGE
-            conditions = torch.cat([encoded_advantages, states], dim=-1)
+            conditions = torch.cat(
+                [encoded_advantages, states, actions], dim=-1)
             # reshape to n_steps x hidden_dim x n_processes
             conditions = conditions.permute(0, 2, 1)
 
