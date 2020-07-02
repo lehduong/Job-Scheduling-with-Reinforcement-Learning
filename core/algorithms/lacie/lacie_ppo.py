@@ -116,7 +116,8 @@ class LACIE_PPO(LacieAlgo):
                 nn.utils.clip_grad_norm_(chain(self.actor_critic.parameters(),
                                                self.input_seq_encoder.parameters(),
                                                self.advantage_encoder.parameters(),
-                                               self.state_encoder.parameters()),
+                                               self.state_encoder.parameters(),
+                                               self.action_encoder.parameters()),
                                          self.max_grad_norm)
                 self.optimizer.step()
                 self.cpc_optimizer.step()

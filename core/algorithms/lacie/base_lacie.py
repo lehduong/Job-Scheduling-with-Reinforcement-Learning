@@ -76,7 +76,8 @@ class LacieAlgo(BaseAlgo):
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
-                self.state_encoder.parameters()
+                self.state_encoder.parameters(),
+                self.action_encoder.parameters()
             ),
             lr=lr
         )
