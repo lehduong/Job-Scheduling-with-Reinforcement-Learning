@@ -44,14 +44,29 @@ class LacieStorage(object):
         advantages = advantages.permute(1, 0, 2)
         n = obs.shape[0]
 
-        for i in range(n):
-            self.obs[self.ptr].copy_(obs[i])
-            self.actions[self.ptr].copy_(actions[i])
-            self.masks[self.ptr].copy_(masks[i])
-            self.advantages[self.ptr].copy_(advantages[i])
+        if self.ptr + n < self.max_size:
+            self.obs[self.ptr: self.ptr + n].copy_(obs)
+            self.actions[self.ptr: self.ptr + n].copy_(actions)
+            self.masks[self.ptr: self.ptr + n].copy_(masks)
+            self.advantages[self.ptr: self.ptr + n].copy_(advantages)
 
-            self.ptr = (self.ptr + 1) % self.max_size
-            self.size = min(self.size + 1, self.max_size)
+            self.ptr = self.ptr + n
+        else:
+            avail = self.max_size - self.ptr
+            self.obs[self.ptr:].copy_(obs[:avail])
+            self.actions[self.ptr:].copy_(actions[:avail])
+            self.masks[self.ptr:].copy_(masks[:avail])
+            self.advantages[self.ptr:].copy_(advantages[:avail])
+
+            left = n - avail
+            self.obs[: left].copy_(obs[avail:])
+            self.actions[: left].copy_(actions[avail:])
+            self.masks[: left].copy_(masks[avail:])
+            self.advantages[: left].copy_(advantages[avail:])
+
+            self.ptr = left
+
+        self.size = min(self.size + n, self.max_size)
 
     def sample(self, batch_size=64):
         idxs = np.random.randint(0, self.size, size=batch_size)

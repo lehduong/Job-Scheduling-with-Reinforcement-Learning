@@ -146,7 +146,7 @@ def main():
         lacie_buffer = LacieStorage(args.num_steps,
                                     envs.observation_space.shape,
                                     envs.action_space,
-                                    max_size=10000)
+                                    max_size=400)
         lacie_buffer.to(device)
         agents = agent = algorithms.LACIE_A2C_Memory(
             actor_critic=actor_critic,
