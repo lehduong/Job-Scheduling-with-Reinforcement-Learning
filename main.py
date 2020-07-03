@@ -140,15 +140,16 @@ def main():
             alpha=args.alpha,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
-            il_coef=args.il_coef
+            il_coef=args.il_coef,
+            num_cpc_steps=args.lacie_num_iter
         )
     elif args.algo == 'lacie_a2c_memory':
         lacie_buffer = LacieStorage(args.num_steps,
                                     envs.observation_space.shape,
                                     envs.action_space,
-                                    max_size=400)
+                                    max_size=args.lacie_buffer_size)
         lacie_buffer.to(device)
-        agents = agent = algorithms.LACIE_A2C_Memory(
+        agent = algorithms.LACIE_A2C_Memory(
             actor_critic=actor_critic,
             value_coef=args.value_loss_coef,
             entropy_coef=args.entropy_coef,
@@ -158,7 +159,8 @@ def main():
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il_coef=args.il_coef,
-            lacie_batch_size=64,
+            num_cpc_steps=args.lacie_num_iter,
+            lacie_batch_size=args.lacie_batch_size,
             lacie_buffer=lacie_buffer
         )
     elif args.algo == 'lacie_ppo':
