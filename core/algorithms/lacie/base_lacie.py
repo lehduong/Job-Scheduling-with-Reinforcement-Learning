@@ -85,19 +85,20 @@ class LacieAlgo(BaseAlgo):
         self.softmax = nn.Softmax(dim=0)
         self.log_softmax = nn.LogSoftmax(dim=0)
 
-    def _encode_input_sequences(self, rollouts):
-        num_steps, n_processes, _ = rollouts.actions.shape
+    def _encode_input_sequences(self, obs, masks):
+        num_steps, n_processes, _ = obs.shape
+        # obs is tensor of shape (n_steps + 1, n_processes, obs_shape)
+        num_steps -= 1
         # INPUT SEQUENCES AND MASKS
         # the stochastic input will be defined by last 2 scalar
-        input_seq = rollouts.obs[1:, :, -2:]
-        masks = rollouts.masks[1:].reshape(num_steps, n_processes)
+        input_seq = obs[1:, :, -2:]
+        masks = masks[1:].reshape(num_steps, n_processes)
         # reverse the input seq order since we want to compute from right to left
         input_seq = torch.flip(input_seq, [0])
         masks = torch.flip(masks, [0])
         # encode the input sequence
         # Let's figure out which steps in the sequence have a zero for any agent
-        # We will always assume t=0 has a zero in it as that makes the logic cleaner
-        has_zeros = ((masks[:-1] == 0.0)
+        has_zeros = ((masks[1:-1] == 0.0)
                      .any(dim=-1)
                      .nonzero()
                      .squeeze()
@@ -122,8 +123,9 @@ class LacieAlgo(BaseAlgo):
             end_idx = has_zeros[i + 1]
 
             try:
-                output, _ = self.input_seq_encoder(
-                    input_seq[start_idx + 1: end_idx + 1])
+                output, hxs = self.input_seq_encoder(
+                    input_seq[start_idx + 1: end_idx + 1],
+                    hxs * masks[start_idx].view(1, -1, 1) if start_idx > -1 else None)
             except:
                 print(start_idx)
                 print(end_idx)
@@ -150,12 +152,13 @@ class LacieAlgo(BaseAlgo):
 
         return advantages
 
-    def _encode_states(self, rollouts):
-        num_steps, n_processes, _ = rollouts.actions.shape
+    def _encode_states(self, obs):
+        num_steps, n_processes, _ = obs.shape
+        num_steps -= 1
         # STATES
         # encode
         # n_steps x n_process x hidden_dim/2
-        states = rollouts.obs[:-1]
+        states = obs[:-1]
         # FIXME: hard code for 1D env
         states_shape = states.shape[2:][0]
         states = self.state_encoder(
@@ -163,31 +166,30 @@ class LacieAlgo(BaseAlgo):
 
         return states
 
-    def _encode_actions(self, rollouts):
-        num_steps, n_processes, _ = rollouts.actions.shape
+    def _encode_actions(self, actions):
+        num_steps, n_processes, _ = actions.shape
         # ACTION
         # encode
         # n_steps x n_process x 1
-        actions = rollouts.actions
         actions = self.action_encoder(
             actions.reshape(-1)).reshape(num_steps, n_processes, -1)
 
         return actions
 
-    def compute_contrastive_loss(self, rollouts, encoded_advantages):
+    def compute_contrastive_loss(self, obs, actions, masks, advantages):
         """
             Contrastive Predictive Coding for learning representation and density ratio
             :param rollouts: Storage's instance
             :param advantage: tensor of shape: (timestep, n_processes, 1)
         """
         # FIXME: only compatible with 1D observation
-        num_steps, n_processes, _ = encoded_advantages.shape
+        num_steps, n_processes, _ = advantages.shape
 
         # encoded all the input
-        encoded_input_seq = self._encode_input_sequences(rollouts)
-        encoded_advantages = self._encode_advantages(encoded_advantages)
-        encoded_states = self._encode_states(rollouts)
-        encoded_actions = self._encode_actions(rollouts)
+        encoded_input_seq = self._encode_input_sequences(obs, masks)
+        encoded_advantages = self._encode_advantages(advantages)
+        encoded_states = self._encode_states(obs)
+        encoded_actions = self._encode_actions(actions)
 
         # condition = STATE + ADVANTAGE + ACTIONS
         conditions = torch.cat(
@@ -223,10 +225,11 @@ class LacieAlgo(BaseAlgo):
             # FIXME: only compatible with 1D observation
             num_steps, n_processes, _ = advantages.shape
 
-            input_seq = self._encode_input_sequences(rollouts)
+            input_seq = self._encode_input_sequences(
+                rollouts.obs, rollouts.masks)
             encoded_advantages = self._encode_advantages(advantages)
-            encoded_states = self._encode_states(rollouts)
-            encoded_actions = self._encode_actions(rollouts)
+            encoded_states = self._encode_states(rollouts.obs)
+            encoded_actions = self._encode_actions(rollouts.actions)
 
             # condition = STATE + ADVANTAGE
             conditions = torch.cat(

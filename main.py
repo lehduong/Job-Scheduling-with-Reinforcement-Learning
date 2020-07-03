@@ -11,7 +11,7 @@ from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent, \
     EarliestCompletionTimeAgent, LeastWorkAgent
 from core.arguments import get_args
 from core.envs import make_vec_envs
-from core.storage import RolloutStorage
+from core.storage import RolloutStorage, LacieStorage
 from evaluation import evaluate
 from tensorboardX import SummaryWriter
 
@@ -141,6 +141,25 @@ def main():
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il_coef=args.il_coef
+        )
+    elif args.algo == 'lacie_a2c_memory':
+        lacie_buffer = LacieStorage(args.num_steps,
+                                    envs.observation_space.shape,
+                                    envs.action_space,
+                                    max_size=10000)
+        lacie_buffer.to(device)
+        agents = agent = algorithms.LACIE_A2C_Memory(
+            actor_critic=actor_critic,
+            value_coef=args.value_loss_coef,
+            entropy_coef=args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            alpha=args.alpha,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef,
+            lacie_batch_size=64,
+            lacie_buffer=lacie_buffer
         )
     elif args.algo == 'lacie_ppo':
         agent = algorithms.LACIE_PPO(
