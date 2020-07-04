@@ -21,10 +21,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 16
+    MAX_WEIGHT_CLIP_THRESHOLD = 10
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 96
+    CPC_HIDDEN_DIM = 36
 
     def __init__(self,
                  actor_critic,
