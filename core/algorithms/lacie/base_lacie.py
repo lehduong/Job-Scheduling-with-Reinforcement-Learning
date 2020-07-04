@@ -45,7 +45,6 @@ class LacieAlgo(BaseAlgo):
         self.advantage_encoder = nn.Sequential(
             nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=False),
             nn.ReLU(),
-            nn.BatchNorm1d(self.CPC_HIDDEN_DIM//3),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
@@ -56,7 +55,6 @@ class LacieAlgo(BaseAlgo):
             nn.Linear(self.actor_critic.obs_shape[0],
                       self.CPC_HIDDEN_DIM//3, bias=False),
             nn.ReLU(),
-            nn.BatchNorm1d(self.CPC_HIDDEN_DIM//3),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
@@ -72,7 +70,6 @@ class LacieAlgo(BaseAlgo):
         self.condition_encoder = nn.Sequential(
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=False),
             nn.ReLU(),
-            nn.BatchNorm1d(self.CPC_HIDDEN_DIM),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
         ).to(self.device)
 
@@ -198,12 +195,6 @@ class LacieAlgo(BaseAlgo):
             :param rollouts: Storage's instance
             :param advantage: tensor of shape: (timestep, n_processes, 1)
         """
-        self.condition_encoder.train()
-        self.action_encoder.train()
-        self.state_encoder.train()
-        self.advantage_encoder.train()
-        self.input_seq_encoder.train()
-
         # FIXME: only compatible with 1D observation
         num_steps, n_processes, _ = advantages.shape
 
@@ -244,12 +235,6 @@ class LacieAlgo(BaseAlgo):
         """
             Compute return for rollout experience with trained contrastive module
         """
-        self.condition_encoder.eval()
-        self.action_encoder.eval()
-        self.state_encoder.eval()
-        self.advantage_encoder.eval()
-        self.input_seq_encoder.eval()
-
         with torch.no_grad():
             # FIXME: only compatible with 1D observation
             num_steps, batch_size, _ = advantages.shape
