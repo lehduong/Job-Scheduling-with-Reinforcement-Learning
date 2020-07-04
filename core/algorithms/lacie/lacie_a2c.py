@@ -111,6 +111,7 @@ class LACIE_A2C(LacieAlgo):
 
         self.optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
+        self.update_weight_clip_threshold()
 
         return {
             'value loss': value_loss.item(),
@@ -229,6 +230,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
 
         self.optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
+        self.update_weight_clip_threshold()
 
         return {
             'value loss': value_loss.item(),
