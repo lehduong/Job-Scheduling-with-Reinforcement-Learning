@@ -58,10 +58,6 @@ class LACIE_A2C(LacieAlgo):
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
 
-        # Normalized advantages
-        advantages = (advantages - advantages.mean()) / (
-            advantages.std() + 1e-5)
-
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # compute contrastive loss and accuracy
         contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
@@ -172,10 +168,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
 
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
-
-        # normalized advantages
-        advantages = (advantages - advantages.mean()) / (
-            advantages.std() + 1e-5)
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # update LACIE_Storage
