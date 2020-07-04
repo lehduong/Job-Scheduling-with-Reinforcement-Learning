@@ -21,10 +21,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 3
+    MAX_WEIGHT_CLIP_THRESHOLD = 16
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 36
+    CPC_HIDDEN_DIM = 96
 
     def __init__(self,
                  actor_critic,
@@ -43,8 +43,9 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
+            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=False),
             nn.ReLU(),
+            nn.BatchNorm1d(self.CPC_HIDDEN_DIM//3),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
@@ -53,8 +54,9 @@ class LacieAlgo(BaseAlgo):
         # FIXME: hard code for 1D env
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
-                      self.CPC_HIDDEN_DIM//3, bias=True),
+                      self.CPC_HIDDEN_DIM//3, bias=False),
             nn.ReLU(),
+            nn.BatchNorm1d(self.CPC_HIDDEN_DIM//3),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
@@ -66,6 +68,14 @@ class LacieAlgo(BaseAlgo):
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
+        # encoding conditions (i.e. advantages + states + actions)
+        self.condition_encoder = nn.Sequential(
+            nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=False),
+            nn.ReLU(),
+            nn.BatchNorm1d(self.CPC_HIDDEN_DIM),
+            nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
+        )
+
         # input sequence encoder
         self.input_seq_encoder = nn.GRU(
             self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
@@ -76,7 +86,8 @@ class LacieAlgo(BaseAlgo):
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
                 self.state_encoder.parameters(),
-                self.action_encoder.parameters()
+                self.action_encoder.parameters(),
+                self.condition_encoder.parameters()
             ),
             lr=lr
         )
@@ -171,6 +182,16 @@ class LacieAlgo(BaseAlgo):
 
         return actions
 
+    def _encode_conditions(self, conditions):
+        num_steps, n_processes, hidden_dim = conditions.shape
+        # ACTION
+        # encode
+        # n_steps x n_process x 1
+        conditions = self.condition_encoder(
+            conditions.reshape(-1, hidden_dim)).reshape(num_steps, n_processes, -1)
+
+        return conditions
+
     def compute_contrastive_loss(self, obs, actions, masks, advantages):
         """
             Contrastive Predictive Coding for learning representation and density ratio
@@ -189,6 +210,7 @@ class LacieAlgo(BaseAlgo):
         # condition = STATE + ADVANTAGE + ACTIONS
         conditions = torch.cat(
             [encoded_advantages, encoded_states, encoded_actions], dim=-1)
+        conditions = self._encode_conditions(conditions)
         # reshape to n_steps x hidden_dim x n_processes
         conditions = conditions.permute(0, 2, 1)
 
@@ -251,7 +273,7 @@ class LacieAlgo(BaseAlgo):
 
             weights *= batch_size
             weights = torch.clamp(
-                weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, 1000)
+                weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, self.MAX_WEIGHT_CLIP_THRESHOLD)
             weights = 1/weights
 
         return advantages[:, :n_envs]*weights if n_envs else advantages*weights

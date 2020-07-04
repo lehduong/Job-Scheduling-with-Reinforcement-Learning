@@ -78,6 +78,7 @@ class LACIE_A2C(LacieAlgo):
             nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
                                            self.input_seq_encoder.parameters(),
                                            self.state_encoder.parameters(),
+                                           self.condition_encoder.parameters(),
                                            self.action_encoder.parameters()),
                                      self.max_grad_norm)
 
@@ -202,6 +203,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
             nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
                                            self.input_seq_encoder.parameters(),
                                            self.state_encoder.parameters(),
+                                           self.condition_encoder.parameters(),
                                            self.action_encoder.parameters()),
                                      self.max_grad_norm)
 
