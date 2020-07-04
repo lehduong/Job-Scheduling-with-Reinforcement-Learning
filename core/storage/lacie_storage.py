@@ -51,10 +51,10 @@ class LacieStorage(object):
         n = obs.shape[0]
 
         idxs = np.arange(self.ptr, self.ptr + n) % self.max_size
-        self.obs[idxs].copy_(obs)
-        self.actions[idxs].copy_(actions)
-        self.masks[idxs].copy_(masks)
-        self.advantages[idxs].copy_(advantages)
+        self.obs[idxs] = obs
+        self.actions[idxs] = actions
+        self.masks[idxs] = masks
+        self.advantages[idxs] = advantages
         self.ptr = (self.ptr + n) % self.max_size
 
         self.size = min(self.size + n, self.max_size)

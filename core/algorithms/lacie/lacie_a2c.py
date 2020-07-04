@@ -185,9 +185,10 @@ class LACIE_A2C_Memory(LACIE_A2C):
                 rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         else:
             data = self.lacie_buffer.sample_most_recent()
-            obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
+            obs, actions, masks, sample_advantages = data['obs'], data[
+                'actions'], data['masks'], data['advantages']
             weighted_advantages = self.compute_weighted_advantages(
-                obs, actions, masks, advantages, rollouts.actions.shape[1])
+                obs, actions, masks, sample_advantages, rollouts.actions.shape[1])
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             data = self.lacie_buffer.sample()
