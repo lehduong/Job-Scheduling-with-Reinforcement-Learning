@@ -66,7 +66,7 @@ class LACIE_A2C(LacieAlgo):
         # computed weighted advantage according to its dependency with input sequences
         # IMPORTANCE: we need to compute the weighted before learn cpc model
         weighted_advantages = self.compute_weighted_advantages(
-            rollouts, advantages.detach())
+            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             cpc_loss, _ = self.compute_contrastive_loss(
@@ -107,7 +107,6 @@ class LACIE_A2C(LacieAlgo):
 
         self.optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
-        self.update_weight_clip_threshold()
 
         return {
             'value loss': value_loss.item(),
@@ -134,7 +133,8 @@ class LACIE_A2C_Memory(LACIE_A2C):
                  il_coef=1,
                  num_cpc_steps=10,
                  lacie_batch_size=64,
-                 lacie_buffer=None):
+                 lacie_buffer=None,
+                 use_memory_to_pred_weights=False):
         super().__init__(actor_critic,
                          value_coef,
                          entropy_coef,
@@ -148,6 +148,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
                          num_cpc_steps)
         self.lacie_batch_size = lacie_batch_size
         self.lacie_buffer = lacie_buffer
+        self.use_memory_to_pred_weights = use_memory_to_pred_weights
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
@@ -176,13 +177,20 @@ class LACIE_A2C_Memory(LACIE_A2C):
         contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss = contrastive_loss.item()
+
         # computed weighted advantage according to its dependency with input sequences
         # IMPORTANCE: we need to compute the weighted before learn cpc model
-        weighted_advantages = self.compute_weighted_advantages(
-            rollouts, advantages.detach())
+        if not self.use_memory_to_pred_weights:
+            weighted_advantages = self.compute_weighted_advantages(
+                rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+        else:
+            data = self.lacie_buffer.sample_most_recent()
+            obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
+            weighted_advantages = self.compute_weighted_advantages(
+                obs, actions, masks, advantages, rollouts.actions.shape[1])
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
-            data = self.lacie_buffer.sample(self.lacie_batch_size)
+            data = self.lacie_buffer.sample()
             obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
             cpc_loss, _ = self.compute_contrastive_loss(
                 obs, actions, masks, advantages)
@@ -222,7 +230,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
 
         self.optimizer.step()
         self.il_coef *= self.IL_DECAY_RATE
-        self.update_weight_clip_threshold()
 
         return {
             'value loss': value_loss.item(),

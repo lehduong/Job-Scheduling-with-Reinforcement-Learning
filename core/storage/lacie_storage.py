@@ -3,7 +3,10 @@ import numpy as np
 
 
 class LacieStorage(object):
-    def __init__(self, num_steps, obs_shape, action_space, max_size=10000):
+    def __init__(self, num_steps, obs_shape, action_space,
+                 max_size=10000,
+                 batch_size=64,
+                 n_processes=16):
         # obs
         self.obs = torch.zeros(max_size, num_steps + 1, * obs_shape)
 
@@ -23,6 +26,9 @@ class LacieStorage(object):
         self.advantages = torch.zeros(max_size, num_steps, 1)
 
         self.ptr, self.size, self.max_size = 0, 0, max_size
+
+        self.batch_size = batch_size
+        self.n_processes = n_processes
 
     def to(self, device):
         self.obs = self.obs.to(device)
@@ -44,32 +50,39 @@ class LacieStorage(object):
         advantages = advantages.permute(1, 0, 2)
         n = obs.shape[0]
 
-        if self.ptr + n < self.max_size:
-            self.obs[self.ptr: self.ptr + n].copy_(obs)
-            self.actions[self.ptr: self.ptr + n].copy_(actions)
-            self.masks[self.ptr: self.ptr + n].copy_(masks)
-            self.advantages[self.ptr: self.ptr + n].copy_(advantages)
-
-            self.ptr = self.ptr + n
-        else:
-            avail = self.max_size - self.ptr
-            self.obs[self.ptr:].copy_(obs[:avail])
-            self.actions[self.ptr:].copy_(actions[:avail])
-            self.masks[self.ptr:].copy_(masks[:avail])
-            self.advantages[self.ptr:].copy_(advantages[:avail])
-
-            left = n - avail
-            self.obs[: left].copy_(obs[avail:])
-            self.actions[: left].copy_(actions[avail:])
-            self.masks[: left].copy_(masks[avail:])
-            self.advantages[: left].copy_(advantages[avail:])
-
-            self.ptr = left
+        idxs = np.arange(self.ptr, self.ptr + n) % self.max_size
+        self.obs[idxs].copy_(obs)
+        self.actions[idxs].copy_(actions)
+        self.masks[idxs].copy_(masks)
+        self.advantages[idxs].copy_(advantages)
+        self.ptr = (self.ptr + n) % self.max_size
 
         self.size = min(self.size + n, self.max_size)
 
-    def sample(self, batch_size=64):
-        idxs = np.random.randint(0, self.size, size=batch_size)
+    def sample(self):
+        idxs = np.random.randint(0, self.size, size=self.batch_size)
+        batch = dict(obs=self.obs[idxs],
+                     actions=self.actions[idxs],
+                     advantages=self.advantages[idxs],
+                     masks=self.masks[idxs])
+
+        # permute tensor to shape n_steps x batch_size x shape
+        return {k: v.permute(1, 0, 2) for k, v in batch.items()}
+
+    def sample_most_recent(self):
+        if self.size < self.batch_size:
+            idxs = np.arange(0, self.size)
+        else:
+            idxs = np.arange(self.ptr - self.batch_size,
+                             self.ptr) % self.max_size
+        # the first n_procecsses indexes will be used to storage current rollout
+        # the rest are most recent rollouts
+        idxs = np.concatenate(
+            [
+                idxs[-self.n_processes:],
+                idxs[:-self.n_processes]
+            ]
+        )
         batch = dict(obs=self.obs[idxs],
                      actions=self.actions[idxs],
                      advantages=self.advantages[idxs],

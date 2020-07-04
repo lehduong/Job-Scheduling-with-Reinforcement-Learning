@@ -21,10 +21,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 32
+    MAX_WEIGHT_CLIP_THRESHOLD = 16
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 48
+    CPC_HIDDEN_DIM = 96
 
     def __init__(self,
                  actor_critic,
@@ -212,19 +212,19 @@ class LacieAlgo(BaseAlgo):
 
         return contrastive_loss, accuracy
 
-    def compute_weighted_advantages(self, rollouts, advantages):
+    def compute_weighted_advantages(self, obs, actions, masks, advantages, n_envs=None):
         """
             Compute return for rollout experience with trained contrastive module
         """
         with torch.no_grad():
             # FIXME: only compatible with 1D observation
-            num_steps, n_processes, _ = advantages.shape
+            num_steps, batch_size, _ = advantages.shape
 
             input_seq = self._encode_input_sequences(
-                rollouts.obs, rollouts.masks)
+                obs, masks)
             encoded_advantages = self._encode_advantages(advantages)
-            encoded_states = self._encode_states(rollouts.obs)
-            encoded_actions = self._encode_actions(rollouts.actions)
+            encoded_states = self._encode_states(obs)
+            encoded_actions = self._encode_actions(actions)
 
             # condition = STATE + ADVANTAGE
             conditions = torch.cat(
@@ -233,24 +233,28 @@ class LacieAlgo(BaseAlgo):
             conditions = conditions.permute(0, 2, 1)
 
             # weight of each advantage score
-            weights = torch.zeros((num_steps, n_processes, 1)).to(
+            weights = torch.zeros((num_steps, n_envs if n_envs else batch_size, 1)).to(
                 self.device)
 
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
                     torch.mm(input_seq[i], conditions[i]))
+                if n_envs:
+                    # N is not None => used memory for predicting weights
+                    density_ratio = density_ratio[:n_envs, :n_envs]
                 # take the diag element
-                density_ratio = density_ratio.diag().reshape(n_processes, 1)
+                density_ratio = density_ratio.diag().reshape(
+                    n_envs if n_envs else batch_size, 1)
 
                 weights[i] = density_ratio
 
-            weights *= n_processes
+            weights *= batch_size
             weights = torch.clamp(
-                weights, 1/self.weight_clip_threshold, self.weight_clip_threshold)
+                weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, self.MAX_WEIGHT_CLIP_THRESHOLD)
             weights = 1/weights
 
-        return advantages*weights
+        return advantages[:, :n_envs]*weights if n_envs else advantages*weights
 
     def update_weight_clip_threshold(self):
         self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_EXPONENTIAL_FACTOR,

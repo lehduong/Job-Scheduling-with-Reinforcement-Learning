@@ -180,6 +180,11 @@ def get_args():
         type=float,
         default=5e-3,
         help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
+    parser.add_argument(
+        '--use-memory-to-pred-weights',
+        action='store_true',
+        default=False,
+        help='if True then use memory in storage to predict weights of advantages')
 
     # LACIE
     parser.add_argument(
@@ -258,7 +263,7 @@ def get_args():
     parser.add_argument(
         '--num-stream-jobs',
         default=1000,
-        type=float,
+        type=int,
         help='number of stream jobs of load balance env in training (default: 1000)')
 
     args = parser.parse_args()

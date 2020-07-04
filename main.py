@@ -147,7 +147,9 @@ def main():
         lacie_buffer = LacieStorage(args.num_steps,
                                     envs.observation_space.shape,
                                     envs.action_space,
-                                    max_size=args.lacie_buffer_size)
+                                    max_size=args.lacie_buffer_size,
+                                    batch_size=args.lacie_batch_size,
+                                    n_processes=args.num_processes)
         lacie_buffer.to(device)
         agent = algorithms.LACIE_A2C_Memory(
             actor_critic=actor_critic,
@@ -161,7 +163,8 @@ def main():
             il_coef=args.il_coef,
             num_cpc_steps=args.lacie_num_iter,
             lacie_batch_size=args.lacie_batch_size,
-            lacie_buffer=lacie_buffer
+            lacie_buffer=lacie_buffer,
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights
         )
     elif args.algo == 'lacie_ppo':
         agent = algorithms.LACIE_PPO(
