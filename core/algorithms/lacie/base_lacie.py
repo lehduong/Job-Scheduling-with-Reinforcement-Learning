@@ -122,14 +122,9 @@ class LacieAlgo(BaseAlgo):
             start_idx = has_zeros[i]
             end_idx = has_zeros[i + 1]
 
-            try:
-                output, hxs = self.input_seq_encoder(
-                    input_seq[start_idx + 1: end_idx + 1],
-                    hxs * masks[start_idx].view(1, -1, 1) if start_idx > -1 else None)
-            except:
-                print(start_idx)
-                print(end_idx)
-                print(has_zeros)
+            output, hxs = self.input_seq_encoder(
+                input_seq[start_idx + 1: end_idx + 1],
+                hxs * masks[start_idx].view(1, -1, 1) if start_idx > -1 else None)
 
             outputs.append(output)
 
