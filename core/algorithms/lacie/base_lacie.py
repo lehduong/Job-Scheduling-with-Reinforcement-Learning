@@ -198,6 +198,12 @@ class LacieAlgo(BaseAlgo):
             :param rollouts: Storage's instance
             :param advantage: tensor of shape: (timestep, n_processes, 1)
         """
+        self.condition_encoder.train()
+        self.action_encoder.train()
+        self.state_encoder.train()
+        self.advantage_encoder.train()
+        self.input_seq_encoder.train()
+
         # FIXME: only compatible with 1D observation
         num_steps, n_processes, _ = advantages.shape
 
@@ -238,6 +244,12 @@ class LacieAlgo(BaseAlgo):
         """
             Compute return for rollout experience with trained contrastive module
         """
+        self.condition_encoder.eval()
+        self.action_encoder.eval()
+        self.state_encoder.eval()
+        self.advantage_encoder.eval()
+        self.input_seq_encoder.eval()
+
         with torch.no_grad():
             # FIXME: only compatible with 1D observation
             num_steps, batch_size, _ = advantages.shape
