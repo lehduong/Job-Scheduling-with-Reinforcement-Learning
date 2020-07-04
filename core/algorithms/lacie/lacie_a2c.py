@@ -54,8 +54,13 @@ class LACIE_A2C(LacieAlgo):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
+
+        # Normalized advantages
+        advantages = (advantages - advantages.mean()) / (
+            advantages.std() + 1e-5)
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # compute contrastive loss and accuracy
@@ -163,8 +168,13 @@ class LACIE_A2C_Memory(LACIE_A2C):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
+
+        # normalized advantages
+        advantages = (advantages - advantages.mean()) / (
+            advantages.std() + 1e-5)
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # update LACIE_Storage

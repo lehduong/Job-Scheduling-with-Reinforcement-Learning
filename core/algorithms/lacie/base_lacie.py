@@ -8,9 +8,6 @@ from itertools import chain
 import torch
 import torch.nn as nn
 
-EPS = 1e-7
-WEIGHT_CLIP_THRESHOLD = 8
-
 
 class LacieAlgo(BaseAlgo):
     """
@@ -24,6 +21,7 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
+    WEIGHT_CLIP_THRESHOLD = 8
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 48
 
@@ -247,7 +245,7 @@ class LacieAlgo(BaseAlgo):
 
             weights *= n_processes
             weights = torch.clamp(
-                weights, 1/WEIGHT_CLIP_THRESHOLD, WEIGHT_CLIP_THRESHOLD)
+                weights, 1/self.WEIGHT_CLIP_THRESHOLD, self.WEIGHT_CLIP_THRESHOLD)
             weights = 1/weights
 
         return advantages*weights
