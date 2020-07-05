@@ -21,7 +21,7 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 4
+    MAX_WEIGHT_CLIP_THRESHOLD = 16
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 48
@@ -274,7 +274,14 @@ class LacieAlgo(BaseAlgo):
                 weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, self.MAX_WEIGHT_CLIP_THRESHOLD)
             weights = 1/weights
 
-        return advantages[:, :n_envs]*weights if n_envs else advantages*weights
+        weighted_advantages = advantages[:, :n_envs] * \
+            weights if n_envs else advantages*weights
+
+        clipped_weighted_advantages = torch.clamp(weighted_advantages,
+                                                  weighted_advantages.mean()/self.MAX_WEIGHT_CLIP_THRESHOLD,
+                                                  weighted_advantages.mean()*self.MAX_WEIGHT_CLIP_THRESHOLD)
+
+        return clipped_weighted_advantages
 
     def update_weight_clip_threshold(self):
         self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_EXPONENTIAL_FACTOR,
