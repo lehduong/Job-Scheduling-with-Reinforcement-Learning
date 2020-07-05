@@ -35,8 +35,6 @@ class LACIE_A2C(LacieAlgo):
                          il_coef=il_coef,
                          num_cpc_steps=num_cpc_steps)
         self.max_grad_norm = max_grad_norm
-        self.optimizer = optim.RMSprop(
-            actor_critic.parameters(), lr, eps=eps, alpha=alpha)
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
