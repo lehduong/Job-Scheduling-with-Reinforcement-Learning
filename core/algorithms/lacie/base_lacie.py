@@ -45,7 +45,7 @@ class LacieAlgo(BaseAlgo):
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
             nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
@@ -55,7 +55,7 @@ class LacieAlgo(BaseAlgo):
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
                       self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
@@ -63,15 +63,15 @@ class LacieAlgo(BaseAlgo):
         self.action_encoder = nn.Sequential(
             nn.Embedding(self.actor_critic.action_space.n,
                          self.CPC_HIDDEN_DIM//3),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
         # encoding conditions (i.e. advantages + states + actions)
         self.condition_encoder = nn.Sequential(
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=True),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
         ).to(self.device)
 
@@ -94,6 +94,30 @@ class LacieAlgo(BaseAlgo):
         self.softmax = nn.Softmax(dim=0)
         self.log_softmax = nn.LogSoftmax(dim=0)
         self.weight_clip_threshold = 1
+
+        # Initialize weights
+        def _weights_init(m):
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+        # initialize gru
+        for layer_p in self.input_seq_encoder._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.kaiming_normal_(self.input_seq_encoder.__getattr__(
+                        p), mode='fan_out', nonlinearity='relu')
+
+        self.condition_encoder.apply(_weights_init)
+        self.state_encoder.apply(_weights_init)
+        self.action_encoder.apply(_weights_init)
+        self.advantage_encoder.apply(_weights_init)
 
     def _encode_input_sequences(self, obs, masks):
         num_steps, n_processes, _ = obs.shape
@@ -221,7 +245,7 @@ class LacieAlgo(BaseAlgo):
             f_value = torch.mm(encoded_input_seq[i], conditions[i])
             # accuracy
             correct += torch.sum(torch.eq(torch.argmax(self.softmax(
-                f_value), dim=1), torch.arange(0, n_processes).to(self.device)))
+                f_value), dim=0), torch.arange(0, n_processes).to(self.device)))
             # nce
             contrastive_loss += torch.sum(
                 torch.diag(self.log_softmax(f_value)))
