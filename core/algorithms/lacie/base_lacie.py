@@ -277,11 +277,7 @@ class LacieAlgo(BaseAlgo):
         weighted_advantages = advantages[:, :n_envs] * \
             weights if n_envs else advantages*weights
 
-        clipped_weighted_advantages = torch.clamp(weighted_advantages,
-                                                  weighted_advantages.mean()/self.MAX_WEIGHT_CLIP_THRESHOLD,
-                                                  weighted_advantages.mean()*self.MAX_WEIGHT_CLIP_THRESHOLD)
-
-        return clipped_weighted_advantages
+        return weighted_advantages
 
     def update_weight_clip_threshold(self):
         self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_EXPONENTIAL_FACTOR,
