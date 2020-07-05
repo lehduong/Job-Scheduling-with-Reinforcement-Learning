@@ -44,26 +44,31 @@ class LACIE_PPO(LacieAlgo):
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
-        advantages = self.compute_weighted_advantages(
-            rollouts, advantages.detach())
-        advantages = (advantages - advantages.mean()) / (
-            advantages.std() + 1e-5)
+
+        # contrastive learning loss
+        contrastive_loss_epoch, contrastive_accuracy_epoch = self.compute_contrastive_loss(
+            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+        contrastive_loss_epoch = contrastive_loss_epoch.item()
+
+        # weighted advantages
+        weighted_advantages = self.compute_weighted_advantages(
+            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+        weighted_advantages = (weighted_advantages - weighted_advantages.mean()) / (
+            weighted_advantages.std() + 1e-5)
 
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
         imitation_loss_epoch = 0
         accuracy_epoch = 0
-        contrastive_loss_epoch = 0
-        contrastive_accuracy_epoch = 0
 
         for e in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
-                    advantages, self.num_mini_batch)
+                    weighted_advantages, self.num_mini_batch)
             else:
                 data_generator = rollouts.feed_forward_generator(
-                    advantages, self.num_mini_batch)
+                    weighted_advantages, self.num_mini_batch)
 
             for sample in data_generator:
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
@@ -106,7 +111,7 @@ class LACIE_PPO(LacieAlgo):
                         self.expert)
 
                 # contrastive learning density ratio
-                contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
+                contrastive_loss, _ = self.compute_contrastive_loss(
                     rollouts, advantages)
 
                 self.optimizer.zero_grad()
@@ -126,9 +131,7 @@ class LACIE_PPO(LacieAlgo):
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
                 imitation_loss_epoch += imitation_loss.item()
-                contrastive_loss_epoch += contrastive_loss.item()
                 accuracy_epoch += accuracy
-                contrastive_accuracy_epoch += contrastive_accuracy
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
@@ -137,8 +140,6 @@ class LACIE_PPO(LacieAlgo):
         dist_entropy_epoch /= num_updates
         imitation_loss_epoch /= num_updates
         accuracy_epoch /= num_updates
-        contrastive_loss_epoch /= num_updates
-        contrastive_accuracy_epoch /= num_updates
 
         self.il_coef *= self.IL_DECAY_RATE
 
