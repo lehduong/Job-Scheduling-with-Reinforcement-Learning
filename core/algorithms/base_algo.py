@@ -6,6 +6,8 @@ import torch
 
 class BaseAlgo(ABC):
     IL_DECAY_RATE = 0.995  # decay factor of imitation learning
+    ENTROPY_DECAY_RATE = 0.999
+    MIN_ENTROPY_COEF = 0.0001
 
     def __init__(self,
                  actor_critic,

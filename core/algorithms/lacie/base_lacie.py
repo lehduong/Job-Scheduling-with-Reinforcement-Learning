@@ -25,6 +25,7 @@ class LacieAlgo(BaseAlgo):
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 48
+    TEMPERATURE = 2
 
     def __init__(self,
                  actor_critic,
@@ -259,7 +260,7 @@ class LacieAlgo(BaseAlgo):
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
-                    torch.mm(input_seq[i], conditions[i]))
+                    torch.mm(input_seq[i], conditions[i])/self.TEMPERATURE)
                 if n_envs:
                     # N is not None => used memory for predicting weights
                     density_ratio = density_ratio[:n_envs, :n_envs]
