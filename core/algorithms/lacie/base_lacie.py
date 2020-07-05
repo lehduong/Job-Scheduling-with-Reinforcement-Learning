@@ -260,7 +260,7 @@ class LacieAlgo(BaseAlgo):
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
-                    torch.mm(input_seq[i], conditions[i])/self.TEMPERATURE)
+                    torch.mm(input_seq[i], conditions[i]))
                 if n_envs:
                     # N is not None => used memory for predicting weights
                     density_ratio = density_ratio[:n_envs, :n_envs]
