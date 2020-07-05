@@ -21,10 +21,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 16
+    MAX_WEIGHT_CLIP_THRESHOLD = 4
     WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 96
+    CPC_HIDDEN_DIM = 48
 
     def __init__(self,
                  actor_critic,
@@ -43,7 +43,7 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=False),
+            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
             nn.ReLU(),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
@@ -53,7 +53,7 @@ class LacieAlgo(BaseAlgo):
         # FIXME: hard code for 1D env
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
-                      self.CPC_HIDDEN_DIM//3, bias=False),
+                      self.CPC_HIDDEN_DIM//3, bias=True),
             nn.ReLU(),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
@@ -68,7 +68,8 @@ class LacieAlgo(BaseAlgo):
 
         # encoding conditions (i.e. advantages + states + actions)
         self.condition_encoder = nn.Sequential(
-            nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=False),
+            nn.ReLU(),
+            nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=True),
             nn.ReLU(),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
         ).to(self.device)
