@@ -112,7 +112,7 @@ class LACIE_PPO(LacieAlgo):
 
                 # contrastive learning density ratio
                 contrastive_loss, _ = self.compute_contrastive_loss(
-                    rollouts, advantages)
+                    rollouts.obs, rollouts.actions, rollouts.masks, advantages)
 
                 self.optimizer.zero_grad()
                 self.cpc_optimizer.zero_grad()
@@ -122,6 +122,7 @@ class LACIE_PPO(LacieAlgo):
                                                self.input_seq_encoder.parameters(),
                                                self.advantage_encoder.parameters(),
                                                self.state_encoder.parameters(),
+                                               self.condition_encoder.parameters(),
                                                self.action_encoder.parameters()),
                                          self.max_grad_norm)
                 self.optimizer.step()
