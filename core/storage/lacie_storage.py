@@ -60,7 +60,8 @@ class LacieStorage(object):
         self.size = min(self.size + n, self.max_size)
 
     def sample(self):
-        idxs = np.random.randint(0, self.size, size=self.batch_size)
+        idxs = np.random.choice(
+            self.size, min(self.batch_size, self.size))
         batch = dict(obs=self.obs[idxs],
                      actions=self.actions[idxs],
                      advantages=self.advantages[idxs],
