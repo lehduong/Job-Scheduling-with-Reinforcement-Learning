@@ -3,9 +3,10 @@ import torch.nn as nn
 import torch.optim as optim
 
 from core.algorithms.kfac import KFACOptimizer
+from core.algorithms.base_algo import BaseAlgo
 
 
-class A2C_ACKTR():
+class A2C_ACKTR(BaseAlgo):
     def __init__(self,
                  actor_critic,
                  value_loss_coef,
@@ -14,21 +15,16 @@ class A2C_ACKTR():
                  eps=None,
                  alpha=None,
                  max_grad_norm=None,
-                 acktr=False):
-
-        self.actor_critic = actor_critic
+                 acktr=False,
+                 expert=None,
+                 il_coef=1):
+        super().__init__(actor_critic, lr, value_loss_coef, entropy_coef, expert, il_coef)
         self.acktr = acktr
-
-        self.value_loss_coef = value_loss_coef
-        self.entropy_coef = entropy_coef
 
         self.max_grad_norm = max_grad_norm
 
         if acktr:
             self.optimizer = KFACOptimizer(actor_critic)
-        else:
-            self.optimizer = optim.RMSprop(
-                actor_critic.parameters(), lr, eps=eps, alpha=alpha)
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
@@ -50,6 +46,16 @@ class A2C_ACKTR():
 
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
+        # imitation learning
+        imitation_loss, accuracy = torch.tensor(0).to(rollouts.obs.device), 0
+        if self.expert:
+            imitation_loss, accuracy = self.imitation_learning(
+                rollouts.obs[:-1].view(-1, *obs_shape),
+                rollouts.recurrent_hidden_states[0].view(
+                    -1, self.actor_critic.recurrent_hidden_state_size),
+                rollouts.masks[:-1].view(-1, 1),
+                self.expert)
+
         if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
             # Compute fisher, see Martens 2014
             self.actor_critic.zero_grad()
@@ -68,7 +74,7 @@ class A2C_ACKTR():
             self.optimizer.acc_stats = False
 
         self.optimizer.zero_grad()
-        (value_loss * self.value_loss_coef + action_loss -
+        (imitation_loss * self.il_coef + value_loss * self.value_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
 
         if self.acktr == False:
@@ -76,9 +82,12 @@ class A2C_ACKTR():
                                      self.max_grad_norm)
 
         self.optimizer.step()
+        self.after_update()
 
         return {
             'value loss': value_loss.item(),
             'action loss': action_loss.item(),
-            'entropy loss': dist_entropy.item()
+            'entropy loss': dist_entropy.item(),
+            'imitation loss': imitation_loss.item(),
+            'accuracy': accuracy
         }

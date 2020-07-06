@@ -6,7 +6,7 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
-        '--algo', default='idp_a2c', help='algorithm to use: a2c | ppo | acktr')
+        '--algo', default='lacie_a2c_memory', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
@@ -69,7 +69,7 @@ def get_args():
         '--num-steps',
         type=int,
         default=100,
-        help='number of forward steps in A2C (default: 20)')
+        help='number of forward steps in A2C (default: 100)')
     parser.add_argument(
         '--ppo-epoch',
         type=int,
@@ -180,6 +180,28 @@ def get_args():
         type=float,
         default=5e-3,
         help='learning rate of innerloop when adapting to new input sequences (default: 2e-3)')
+    parser.add_argument(
+        '--use-memory-to-pred-weights',
+        action='store_true',
+        default=False,
+        help='if True then use memory in storage to predict weights of advantages')
+
+    # LACIE
+    parser.add_argument(
+        '--lacie-buffer-size',
+        type=int,
+        default=400,
+        help='Size of buffer contains obs, actions for learning hindsight ratio (default: 400)')
+    parser.add_argument(
+        '--lacie-batch-size',
+        type=int,
+        default=64,
+        help='Batch size of every update to learn hindsight ratio via contrastive loss (default: 64)')
+    parser.add_argument(
+        '--lacie-num-iter',
+        type=int,
+        default=10,
+        help='Number of iterations to learn hindsight ratio each update (default: 10)')
 
     # LOAD BALANCE ENVIRONMENT
     parser.add_argument(
@@ -235,22 +257,23 @@ def get_args():
         help='normalize factor of reward in training (default: 1000)')
     parser.add_argument(
         '--max-random-init-steps',
-        default=50,
+        default=1,
         type=int,
         help='maximum number  of random initial steps after resetting (default: 50)')
     parser.add_argument(
         '--num-stream-jobs',
         default=1000,
-        type=float,
+        type=int,
         help='number of stream jobs of load balance env in training (default: 1000)')
 
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr', 'idp_a2c']
+    assert args.algo in ['a2c', 'ppo', 'acktr',
+                         'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory', 'lacie_ppo_memory']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo', 'idp_a2c'], \
+        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory', 'lacie_ppo_memory'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args

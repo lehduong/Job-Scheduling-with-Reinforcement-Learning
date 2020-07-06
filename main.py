@@ -6,11 +6,12 @@ import os.path as osp
 
 from collections import deque
 from core import algorithms, utils
-from core.agents import Policy, MetaInputDependentPolicy
-from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent
+from core.agents import Policy
+from core.agents.heuristic.load_balance import ShortestProcessingTimeAgent, \
+    EarliestCompletionTimeAgent, LeastWorkAgent
 from core.arguments import get_args
 from core.envs import make_vec_envs
-from core.storage import RolloutStorage
+from core.storage import RolloutStorage, LacieStorage
 from evaluation import evaluate
 from tensorboardX import SummaryWriter
 
@@ -61,22 +62,11 @@ def main():
                              args=args)
 
     # create actor critic
-    if args.algo.startswith('idp'):
-        # actor critic for input-dependent baseline
-        # i.e. meta critic (and conventional actor)
-        actor_critic = MetaInputDependentPolicy(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy},
-            num_inner_steps=args.num_inner_steps,
-            adapt_lr=args.adapt_lr)
-    else:
-        # vanilla actor-critic
-        actor_critic = Policy(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy})
-
+    actor_critic = Policy(
+        envs.observation_space.shape,
+        envs.action_space,
+        base_kwargs={'recurrent': args.recurrent_policy})
+    # if the resume directory is provided, then directly load that checkpoint
     if args.resume_dir is not None:
         print("=> Resuming from checkpoint: {}".format(args.resume_dir))
         actor_critic = torch.load(args.resume_dir, map_location='cpu')[0]
@@ -84,7 +74,7 @@ def main():
 
     # expert for imitation learning
     if args.use_imitation_learning:
-        expert = ShortestProcessingTimeAgent(args.load_balance_service_rates)
+        expert = LeastWorkAgent()
     else:
         expert = None
 
@@ -96,7 +86,9 @@ def main():
             lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
-            max_grad_norm=args.max_grad_norm)
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef)
     elif args.algo == 'ppo':
         agent = algorithms.PPO(
             actor_critic,
@@ -107,21 +99,110 @@ def main():
             args.entropy_coef,
             lr=args.lr,
             eps=args.eps,
-            max_grad_norm=args.max_grad_norm)
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef)
     elif args.algo == 'acktr':
         agent = algorithms.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
-    elif args.algo == 'idp_a2c':
-        agent = algorithms.MetaInputDependentA2C(
+    elif args.algo == 'mib_a2c':
+        agent = algorithms.MIB_A2C(
             actor_critic,
-            args.value_loss_coef,
             args.entropy_coef,
+            lr=args.lr,
+            adapt_lr=args.adapt_lr,
+            num_inner_steps=args.num_inner_steps,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef
+        )
+    elif args.algo == 'mib_ppo':
+        agent = algorithms.MIB_PPO(
+            actor_critic=actor_critic,
+            clip_param=args.clip_param,
+            ppo_epoch=args.ppo_epoch,
+            num_mini_batch=args.num_mini_batch,
+            entropy_coef=args.entropy_coef,
+            lr=args.lr,
+            adapt_lr=args.adapt_lr,
+            num_inner_steps=args.num_inner_steps,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef
+        )
+    elif args.algo == 'lacie_a2c':
+        agent = algorithms.LACIE_A2C(
+            actor_critic=actor_critic,
+            value_coef=args.value_loss_coef,
+            entropy_coef=args.entropy_coef,
             lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
-            il=args.il_coef
+            il_coef=args.il_coef,
+            num_cpc_steps=args.lacie_num_iter
+        )
+    elif args.algo == 'lacie_a2c_memory':
+        lacie_buffer = LacieStorage(args.num_steps,
+                                    envs.observation_space.shape,
+                                    envs.action_space,
+                                    max_size=args.lacie_buffer_size,
+                                    batch_size=args.lacie_batch_size,
+                                    n_processes=args.num_processes)
+        lacie_buffer.to(device)
+        agent = algorithms.LACIE_A2C_Memory(
+            actor_critic=actor_critic,
+            value_coef=args.value_loss_coef,
+            entropy_coef=args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            alpha=args.alpha,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef,
+            num_cpc_steps=args.lacie_num_iter,
+            lacie_batch_size=args.lacie_batch_size,
+            lacie_buffer=lacie_buffer,
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights
+        )
+    elif args.algo == 'lacie_ppo':
+        agent = algorithms.LACIE_PPO(
+            actor_critic,
+            args.clip_param,
+            args.ppo_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef)
+    elif args.algo == 'lacie_ppo_memory':
+        lacie_buffer = LacieStorage(args.num_steps,
+                                    envs.observation_space.shape,
+                                    envs.action_space,
+                                    max_size=args.lacie_buffer_size,
+                                    batch_size=args.lacie_batch_size,
+                                    n_processes=args.num_processes)
+        lacie_buffer.to(device)
+        agent = algorithms.LACIE_PPO_Memory(
+            actor_critic,
+            args.clip_param,
+            args.ppo_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef,
+            num_cpc_steps=args.lacie_num_iter,
+            lacie_batch_size=args.lacie_batch_size,
+            lacie_buffer=lacie_buffer,
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights
         )
     else:
         raise ValueError("Not Implemented algorithm...")
@@ -260,8 +341,9 @@ def main():
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             # alter the random seed
-            eval_results = evaluate(actor_critic, args.env_name, random_seed,
-                                    args.num_processes, eval_log_dir, device, env_args=args)
+            eval_results = evaluate(actor_critic, args.env_name, seed=args.seed,
+                                    num_processes=args.num_processes, eval_log_dir=eval_log_dir,
+                                    device=device, env_args=args)
             writer.add_scalars(
                 'eval/reward',
                 {k: np.mean(v) for k, v in eval_results.items()},

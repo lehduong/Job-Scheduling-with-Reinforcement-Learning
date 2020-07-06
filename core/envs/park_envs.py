@@ -73,7 +73,7 @@ def make_env(env_id,
             env = TimeLimitMask(env)
 
         # IMPORTANT: all environments used same random seed to repeat the input-process
-        if train:
+        if train and args.algo.startswith('mib'):
             env.seed(seed)
         else:
             env.seed(seed + rank)
@@ -127,6 +127,15 @@ def make_vec_envs(env_name,
     envs = VecPyTorch(envs, device)
 
     return envs
+
+
+def load_balance_states_to_inputs(states):
+    """
+        Transform states of LoadBalance Env to inputs sequences
+        :param states: torch.Tensor of shape T x N_processes x (Num_servers + 2)
+        :return: torch.Tensor of shape T x N_processes x 2
+    """
+    return states[:, :, -2:]
 
 
 # Checks whether done was caused my timit limits or not

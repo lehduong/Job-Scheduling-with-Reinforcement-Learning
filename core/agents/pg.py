@@ -37,6 +37,9 @@ class Policy(nn.Module):
         else:
             raise NotImplementedError
 
+        self.obs_shape = obs_shape
+        self.action_space = action_space
+
     @property
     def is_recurrent(self):
         return self.base.is_recurrent
