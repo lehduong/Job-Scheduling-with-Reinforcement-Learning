@@ -257,7 +257,7 @@ def get_args():
         help='normalize factor of reward in training (default: 1000)')
     parser.add_argument(
         '--max-random-init-steps',
-        default=50,
+        default=1,
         type=int,
         help='maximum number  of random initial steps after resetting (default: 50)')
     parser.add_argument(
@@ -271,9 +271,9 @@ def get_args():
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
     assert args.algo in ['a2c', 'ppo', 'acktr',
-                         'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory']
+                         'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory', 'lacie_ppo_memory']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory'], \
+        assert args.algo in ['a2c', 'ppo', 'mib_a2c', 'mib_ppo', 'lacie_a2c', 'lacie_ppo', 'lacie_a2c_memory', 'lacie_ppo_memory'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args

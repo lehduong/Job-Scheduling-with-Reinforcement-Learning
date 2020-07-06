@@ -82,7 +82,7 @@ class A2C_ACKTR(BaseAlgo):
                                      self.max_grad_norm)
 
         self.optimizer.step()
-        self.il_coef *= self.IL_DECAY_RATE
+        self.after_update()
 
         return {
             'value loss': value_loss.item(),

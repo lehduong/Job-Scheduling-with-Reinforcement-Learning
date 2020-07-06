@@ -179,6 +179,31 @@ def main():
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il_coef=args.il_coef)
+    elif args.algo == 'lacie_ppo_memory':
+        lacie_buffer = LacieStorage(args.num_steps,
+                                    envs.observation_space.shape,
+                                    envs.action_space,
+                                    max_size=args.lacie_buffer_size,
+                                    batch_size=args.lacie_batch_size,
+                                    n_processes=args.num_processes)
+        lacie_buffer.to(device)
+        agent = algorithms.LACIE_PPO_Memory(
+            actor_critic,
+            args.clip_param,
+            args.ppo_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            max_grad_norm=args.max_grad_norm,
+            expert=expert,
+            il_coef=args.il_coef,
+            num_cpc_steps=args.lacie_num_iter,
+            lacie_batch_size=args.lacie_batch_size,
+            lacie_buffer=lacie_buffer,
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights
+        )
     else:
         raise ValueError("Not Implemented algorithm...")
 

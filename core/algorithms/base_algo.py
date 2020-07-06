@@ -53,3 +53,8 @@ class BaseAlgo(ABC):
                     expert_actions.reshape(-1)).float().sum()/expert_actions.shape[0]
 
         return il_loss, accuracy
+
+    def after_update(self):
+        self.il_coef *= self.IL_DECAY_RATE
+        self.entropy_coef = max(
+            self.entropy_coef * self.ENTROPY_DECAY_RATE, self.MIN_ENTROPY_COEF)

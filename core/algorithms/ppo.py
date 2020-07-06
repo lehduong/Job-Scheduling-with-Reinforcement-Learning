@@ -112,7 +112,7 @@ class PPO(BaseAlgo):
         imitation_loss_epoch /= num_updates
         accuracy_epoch /= num_updates
 
-        self.il_coef *= self.IL_DECAY_RATE
+        self.after_update()
 
         return {
             "value loss": value_loss_epoch,

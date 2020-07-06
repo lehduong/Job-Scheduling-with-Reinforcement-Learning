@@ -105,9 +105,8 @@ class LACIE_A2C(LacieAlgo):
                                  self.max_grad_norm)
 
         self.optimizer.step()
-        self.il_coef *= self.IL_DECAY_RATE
-        self.entropy_coef = max(
-            self.entropy_coef * self.ENTROPY_DECAY_RATE, self.MIN_ENTROPY_COEF)
+        self.after_update()
+
         return {
             'value loss': value_loss.item(),
             'action loss': action_loss.item(),
@@ -231,9 +230,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
                                  self.max_grad_norm)
 
         self.optimizer.step()
-        self.il_coef *= self.IL_DECAY_RATE
-        self.entropy_coef = max(
-            self.entropy_coef * self.ENTROPY_DECAY_RATE, self.MIN_ENTROPY_COEF)
+        self.after_update()
 
         return {
             'value loss': value_loss.item(),
