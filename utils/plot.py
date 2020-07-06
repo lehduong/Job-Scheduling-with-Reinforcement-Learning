@@ -5,6 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 import os
+import os.path as osp
 import glob
 from scipy.signal import medfilt
 
@@ -201,7 +202,7 @@ def plot(folder, game, name, num_steps, bin_size=100, smooth=1):
 
     plt.title(game)
     plt.legend(loc=4)
-    plt.savefig('plot.png')
+    plt.savefig(osp.join(folder, 'plot.png'))
     # plt.show()
 
 
