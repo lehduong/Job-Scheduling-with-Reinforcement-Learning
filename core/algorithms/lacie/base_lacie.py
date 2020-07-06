@@ -91,8 +91,9 @@ class LacieAlgo(BaseAlgo):
             lr=lr
         )
 
-        self.softmax = nn.Softmax(dim=0)
-        self.log_softmax = nn.LogSoftmax(dim=0)
+        self.softmax = nn.Softmax(dim=-1)
+        self.log_softmax = nn.LogSoftmax(dim=-1)
+        self.cpc_criterion = nn.CrossEntropyLoss()
         self.weight_clip_threshold = 1
 
         # Initialize weights
@@ -235,23 +236,28 @@ class LacieAlgo(BaseAlgo):
             [encoded_advantages, encoded_states, encoded_actions], dim=-1)
         conditions = self._encode_conditions(conditions)
         # reshape to n_steps x hidden_dim x n_processes
-        conditions = conditions.permute(0, 2, 1)
+        encoded_input_seq = encoded_input_seq.permute(0, 2, 1)
 
         # compute nce
         contrastive_loss = 0
         correct = 0
+
+        label = torch.arange(0, n_processes).to(self.device)
+
         for i in range(num_steps):
             # f(Z, s0, a0, R) WITHOUT exponential
-            f_value = torch.mm(encoded_input_seq[i], conditions[i])
+            f_value = torch.mm(conditions[i], encoded_input_seq[i])
             # accuracy
             correct += torch.sum(torch.eq(torch.argmax(self.softmax(
-                f_value), dim=0), torch.arange(0, n_processes).to(self.device)))
+                f_value), dim=1), torch.arange(0, n_processes).to(self.device)))
             # nce
-            contrastive_loss += torch.sum(
-                torch.diag(self.log_softmax(f_value)))
+            # contrastive_loss += torch.sum(
+            #    torch.diag(self.log_softmax(f_value)))
+            contrastive_loss += self.cpc_criterion(
+                f_value, label)
 
         # log loss
-        contrastive_loss /= -1*n_processes*num_steps
+        contrastive_loss /= n_processes*num_steps
         # accuracy
         accuracy = 1.*correct.item()/(n_processes*num_steps)
 
@@ -275,7 +281,7 @@ class LacieAlgo(BaseAlgo):
             conditions = torch.cat(
                 [encoded_advantages, encoded_states, encoded_actions], dim=-1)
             # reshape to n_steps x hidden_dim x n_processes
-            conditions = conditions.permute(0, 2, 1)
+            input_seq = input_seq.permute(0, 2, 1)
 
             # weight of each advantage score
             weights = torch.zeros((num_steps, n_envs if n_envs else batch_size, 1)).to(
@@ -284,7 +290,7 @@ class LacieAlgo(BaseAlgo):
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
-                    torch.mm(input_seq[i], conditions[i]))
+                    torch.mm(conditions[i], input_seq[i]))
                 if n_envs:
                     # N is not None => used memory for predicting weights
                     density_ratio = density_ratio[:n_envs, :n_envs]
