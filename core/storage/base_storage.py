@@ -138,7 +138,7 @@ class RolloutStorage(object):
             if advantages is None:
                 adv_targ = None
             else:
-                adv_targ = advantages.view(-1, 1)[indices]
+                adv_targ = advantages.reshape(-1, 1)[indices]
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
                 value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ

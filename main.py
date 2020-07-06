@@ -14,6 +14,7 @@ from core.envs import make_vec_envs
 from core.storage import RolloutStorage, LacieStorage
 from evaluation import evaluate
 from tensorboardX import SummaryWriter
+from utils.plot import plot
 
 
 def main():
@@ -336,6 +337,8 @@ def main():
             print(result_str)
 
             writer.add_scalar("train/reward", np.mean(episode_rewards), j)
+            plot(log_dir, 'load-balance', args.algo,
+                 args.num_env_steps)
 
         # EVALUATE performance of learned policy along with heuristic
         if (args.eval_interval is not None and len(episode_rewards) > 1
