@@ -52,6 +52,7 @@ class LACIE_A2C(LacieAlgo):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        returns = rollouts.returns[:-1]
 
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
@@ -59,16 +60,16 @@ class LACIE_A2C(LacieAlgo):
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # compute contrastive loss and accuracy
         contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+            rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
         # computed weighted advantage according to its dependency with input sequences
         # IMPORTANCE: we need to compute the weighted before learn cpc model
         weighted_advantages = self.compute_weighted_advantages(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+            rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             cpc_loss, _ = self.compute_contrastive_loss(
-                rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+                rollouts.obs, rollouts.actions, rollouts.masks, returns)
 
             self.cpc_optimizer.zero_grad()
             cpc_loss.backward()
@@ -165,29 +166,30 @@ class LACIE_A2C_Memory(LACIE_A2C):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        returns = rollouts.returns[:-1]
 
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # update LACIE_Storage
-        self.lacie_buffer.insert(rollouts, advantages.detach())
+        self.lacie_buffer.insert(rollouts, returns)
         # compute contrastive loss and accuracy
         contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+            rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
 
         # computed weighted advantage according to its dependency with input sequences
         # IMPORTANCE: we need to compute the weighted before learn cpc model
         if not self.use_memory_to_pred_weights:
             weighted_advantages = self.compute_weighted_advantages(
-                rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+                rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
         else:
             data = self.lacie_buffer.sample_most_recent()
             obs, actions, masks, sample_advantages = data['obs'], data[
                 'actions'], data['masks'], data['advantages']
             weighted_advantages = self.compute_weighted_advantages(
-                obs, actions, masks, sample_advantages, rollouts.actions.shape[1])
+                obs, actions, masks, sample_advantages, rollouts.actions.shape[1]) - values
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             data = self.lacie_buffer.sample()
