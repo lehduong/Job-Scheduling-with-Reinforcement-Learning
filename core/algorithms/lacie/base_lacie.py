@@ -22,10 +22,9 @@ class LacieAlgo(BaseAlgo):
                     T x N_processes x Obs_shape
     """
     MAX_WEIGHT_CLIP_THRESHOLD = 16
-    WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
+    WEIGHT_CLIP_GROWTH_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 48
-    TEMPERATURE = 2
 
     def __init__(self,
                  actor_critic,
@@ -302,7 +301,7 @@ class LacieAlgo(BaseAlgo):
 
             weights *= batch_size
             weights = torch.clamp(
-                weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, self.MAX_WEIGHT_CLIP_THRESHOLD)
+                weights, 1/self.weight_clip_threshold, self.weight_clip_threshold)
             weights = 1/weights
 
         weighted_advantages = advantages[:, :n_envs] * \
@@ -311,5 +310,9 @@ class LacieAlgo(BaseAlgo):
         return weighted_advantages
 
     def update_weight_clip_threshold(self):
-        self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_EXPONENTIAL_FACTOR,
+        self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_GROWTH_FACTOR,
                                          self.MAX_WEIGHT_CLIP_THRESHOLD)
+
+    def after_update(self):
+        super().after_update()
+        self.update_weight_clip_threshold()
