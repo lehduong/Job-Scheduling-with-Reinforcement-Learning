@@ -203,6 +203,7 @@ def plot(folder, game, name, num_steps, bin_size=100, smooth=1):
     plt.title(game)
     plt.legend(loc=4)
     plt.savefig(osp.join(folder, 'plot.png'))
+    plt.close()
     # plt.show()
 
 
