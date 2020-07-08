@@ -22,6 +22,8 @@ class LacieAlgo(BaseAlgo):
                     T x N_processes x Obs_shape
     """
     MAX_WEIGHT_CLIP_THRESHOLD = 16
+    UPPER_BOUND_CLIP_THRESHOLD = 2
+    LOWER_BOUND_CLIP_THRESHOLD = 1/100
     WEIGHT_CLIP_GROWTH_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 96
@@ -79,7 +81,7 @@ class LacieAlgo(BaseAlgo):
             self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.RMSprop(
+        self.cpc_optimizer = optim.Adam(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
@@ -301,7 +303,10 @@ class LacieAlgo(BaseAlgo):
 
             weights *= batch_size
             weights = torch.clamp(
-                weights, 1/self.weight_clip_threshold, self.weight_clip_threshold)
+                weights,
+                1/self.UPPER_BOUND_CLIP_THRESHOLD,
+                1/self.LOWER_BOUND_CLIP_THRESHOLD
+            )
             weights = 1/weights
 
         weighted_advantages = advantages[:, :n_envs] * \
