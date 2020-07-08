@@ -306,8 +306,8 @@ class LacieAlgo(BaseAlgo):
             weights = 1/(weights+1e-5)
             weights = torch.clamp(
                 weights,
-                self.upper_bound_clip_threshold,
-                self.lower_bound_clip_threshold
+                self.lower_bound_clip_threshold,
+                self.upper_bound_clip_threshold
             )
 
         weighted_advantages = advantages[:, :n_envs] * \
