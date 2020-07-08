@@ -351,8 +351,8 @@ def main():
                 'eval/reward',
                 {k: np.mean(v) for k, v in eval_results.items()},
                 j)
-            plot(eval_log_dir, 'load-balance', args.algo,
-                 args.num_env_steps)
+            # plot(eval_log_dir, 'load-balance', args.algo,
+            #     args.num_env_steps)
 
     writer.close()
 

@@ -63,9 +63,7 @@ class LACIE_A2C(LacieAlgo):
             rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
         # computed weighted advantage according to its dependency with input sequences
-        # IMPORTANCE: we need to compute the weighted before learn cpc model
-        weighted_advantages = self.compute_weighted_advantages(
-            rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
+
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             cpc_loss, _ = self.compute_contrastive_loss(
@@ -74,14 +72,19 @@ class LACIE_A2C(LacieAlgo):
             self.cpc_optimizer.zero_grad()
             cpc_loss.backward()
 
-            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
-                                           self.input_seq_encoder.parameters(),
-                                           self.state_encoder.parameters(),
-                                           self.condition_encoder.parameters(),
-                                           self.action_encoder.parameters()),
-                                     self.max_grad_norm)
+            # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+            #                                self.input_seq_encoder.parameters(),
+            #                                self.state_encoder.parameters(),
+            #                                self.condition_encoder.parameters(),
+            #                                self.action_encoder.parameters()),
+            #                          self.max_grad_norm)
 
             self.cpc_optimizer.step()
+
+        # IMPORTANCE: we need to compute the weighted before learn cpc model
+        # FIXME: Move to training to top to verify if the model can estimate density ratio
+        weighted_advantages = self.compute_weighted_advantages(
+            rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
 
         # Action loss of Actor Net
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()
@@ -180,16 +183,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
         contrastive_loss = contrastive_loss.item()
 
         # computed weighted advantage according to its dependency with input sequences
-        # IMPORTANCE: we need to compute the weighted before learn cpc model
-        if not self.use_memory_to_pred_weights:
-            weighted_advantages = self.compute_weighted_advantages(
-                rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
-        else:
-            data = self.lacie_buffer.sample_most_recent()
-            obs, actions, masks, sample_advantages = data['obs'], data[
-                'actions'], data['masks'], data['advantages']
-            weighted_advantages = self.compute_weighted_advantages(
-                obs, actions, masks, sample_advantages, rollouts.actions.shape[1]) - values
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             data = self.lacie_buffer.sample()
@@ -200,14 +193,26 @@ class LACIE_A2C_Memory(LACIE_A2C):
             self.cpc_optimizer.zero_grad()
             cpc_loss.backward()
 
-            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
-                                           self.input_seq_encoder.parameters(),
-                                           self.state_encoder.parameters(),
-                                           self.condition_encoder.parameters(),
-                                           self.action_encoder.parameters()),
-                                     self.max_grad_norm)
+            # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+            #                                self.input_seq_encoder.parameters(),
+            #                                self.state_encoder.parameters(),
+            #                                self.condition_encoder.parameters(),
+            #                                self.action_encoder.parameters()),
+            #                          self.max_grad_norm)
 
             self.cpc_optimizer.step()
+
+        # IMPORTANCE: we need to compute the weighted before learn cpc model
+        # FIXME: Move the cpc training on top to verify if it can learn useful estimation
+        if not self.use_memory_to_pred_weights:
+            weighted_advantages = self.compute_weighted_advantages(
+                rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
+        else:
+            data = self.lacie_buffer.sample_most_recent()
+            obs, actions, masks, sample_advantages = data['obs'], data[
+                'actions'], data['masks'], data['advantages']
+            weighted_advantages = self.compute_weighted_advantages(
+                obs, actions, masks, sample_advantages, rollouts.actions.shape[1]) - values
 
         # Action loss of Actor Net
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()

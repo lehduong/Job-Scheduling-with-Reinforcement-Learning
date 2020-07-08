@@ -24,7 +24,7 @@ class LacieAlgo(BaseAlgo):
     MAX_WEIGHT_CLIP_THRESHOLD = 16
     WEIGHT_CLIP_GROWTH_FACTOR = 1.001
     INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 48
+    CPC_HIDDEN_DIM = 96
 
     def __init__(self,
                  actor_critic,
@@ -44,7 +44,7 @@ class LacieAlgo(BaseAlgo):
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
             nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
@@ -54,7 +54,7 @@ class LacieAlgo(BaseAlgo):
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
                       self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
@@ -62,15 +62,15 @@ class LacieAlgo(BaseAlgo):
         self.action_encoder = nn.Sequential(
             nn.Embedding(self.actor_critic.action_space.n,
                          self.CPC_HIDDEN_DIM//3),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
         # encoding conditions (i.e. advantages + states + actions)
         self.condition_encoder = nn.Sequential(
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=True),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
         ).to(self.device)
 
@@ -79,7 +79,7 @@ class LacieAlgo(BaseAlgo):
             self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.Adam(
+        self.cpc_optimizer = optim.RMSprop(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
