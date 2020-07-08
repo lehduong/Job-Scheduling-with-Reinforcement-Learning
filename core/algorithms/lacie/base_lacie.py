@@ -21,10 +21,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 16
     UPPER_BOUND_CLIP_THRESHOLD = 2
     LOWER_BOUND_CLIP_THRESHOLD = 1/100
     WEIGHT_CLIP_GROWTH_FACTOR = 1.001
+    WEIGHT_CLIP_DECAY_FACTOR = 0.999
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 96
 
@@ -95,7 +95,8 @@ class LacieAlgo(BaseAlgo):
         self.softmax = nn.Softmax(dim=-1)
         self.log_softmax = nn.LogSoftmax(dim=-1)
         self.cpc_criterion = nn.CrossEntropyLoss()
-        self.weight_clip_threshold = 1
+        self.upper_bound_clip_threshold = 1
+        self.lower_bound_clip_threshold = 1
 
         # Initialize weights
         def _weights_init(m):
@@ -302,12 +303,12 @@ class LacieAlgo(BaseAlgo):
                 weights[i] = density_ratio
 
             weights *= batch_size
+            weights = 1/(weights+1e-5)
             weights = torch.clamp(
                 weights,
-                1/self.UPPER_BOUND_CLIP_THRESHOLD,
-                1/self.LOWER_BOUND_CLIP_THRESHOLD
+                self.upper_bound_clip_threshold,
+                self.lower_bound_clip_threshold
             )
-            weights = 1/weights
 
         weighted_advantages = advantages[:, :n_envs] * \
             weights if n_envs else advantages*weights
@@ -315,8 +316,14 @@ class LacieAlgo(BaseAlgo):
         return weighted_advantages
 
     def update_weight_clip_threshold(self):
-        self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_GROWTH_FACTOR,
-                                         self.MAX_WEIGHT_CLIP_THRESHOLD)
+        self.upper_bound_clip_threshold = min(
+            self.upper_bound_clip_threshold * self.WEIGHT_CLIP_GROWTH_FACTOR,
+            self.UPPER_BOUND_CLIP_THRESHOLD
+        )
+        self.lower_bound_clip_threshold = max(
+            self.lower_bound_clip_threshold * self.WEIGHT_CLIP_DECAY_FACTOR,
+            self.LOWER_BOUND_CLIP_THRESHOLD
+        )
 
     def after_update(self):
         super().after_update()
