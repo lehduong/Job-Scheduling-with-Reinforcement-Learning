@@ -337,6 +337,9 @@ def main():
             print(result_str)
 
             writer.add_scalar("train/reward", np.mean(episode_rewards), j)
+            for k, v in results.items():
+                writer.add_scalar("train/"+k.replace(' ', '_'), v, j)
+
             plot(log_dir, 'load-balance', args.algo,
                  args.num_env_steps)
 
