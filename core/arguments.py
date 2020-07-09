@@ -49,6 +49,11 @@ def get_args():
         default=0.5,
         help='value loss coefficient (default: 0.5)')
     parser.add_argument(
+        '--regularize-coef',
+        type=float,
+        default=0.05,
+        help='cpc regularize loss coefficient (default: 0.05)')
+    parser.add_argument(
         '--max-grad-norm',
         type=float,
         default=0.5,

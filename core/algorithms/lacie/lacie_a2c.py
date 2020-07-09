@@ -18,6 +18,7 @@ class LACIE_A2C(LacieAlgo):
                  actor_critic,
                  value_coef,
                  entropy_coef,
+                 regularize_coef,
                  eps=None,
                  alpha=None,
                  state_to_input_seq=None,
@@ -30,6 +31,7 @@ class LACIE_A2C(LacieAlgo):
                          lr=lr,
                          value_coef=value_coef,
                          entropy_coef=entropy_coef,
+                         regularize_coef=regularize_coef,
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
                          il_coef=il_coef,
@@ -59,18 +61,19 @@ class LACIE_A2C(LacieAlgo):
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # compute contrastive loss and accuracy
-        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
+        contrastive_loss, contrastive_accuracy, regularize_loss = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
+        regularize_loss = regularize_loss.item()
         # computed weighted advantage according to its dependency with input sequences
 
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
-            cpc_loss, _ = self.compute_contrastive_loss(
+            cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
                 rollouts.obs, rollouts.actions, rollouts.masks, returns)
 
             self.cpc_optimizer.zero_grad()
-            cpc_loss.backward()
+            (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
 
             # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
             #                                self.input_seq_encoder.parameters(),
@@ -118,7 +121,8 @@ class LACIE_A2C(LacieAlgo):
             'imitation loss': imitation_loss.item(),
             'imitation accuracy': imitation_accuracy,
             'contrastive loss': contrastive_loss,
-            'contrastive accuracy': contrastive_accuracy
+            'contrastive accuracy': contrastive_accuracy,
+            'regularize loss': regularize_loss
         }
 
 
@@ -127,6 +131,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
                  actor_critic,
                  value_coef,
                  entropy_coef,
+                 regularize_coef,
                  eps=None,
                  alpha=None,
                  state_to_input_seq=None,
@@ -141,6 +146,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
         super().__init__(actor_critic,
                          value_coef,
                          entropy_coef,
+                         regularize_coef,
                          eps,
                          alpha,
                          state_to_input_seq,
@@ -178,20 +184,21 @@ class LACIE_A2C_Memory(LACIE_A2C):
         # update LACIE_Storage
         self.lacie_buffer.insert(rollouts, returns)
         # compute contrastive loss and accuracy
-        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
+        contrastive_loss, contrastive_accuracy, regularize_loss = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
+        regularize_loss = regularize_loss.item()
 
         # computed weighted advantage according to its dependency with input sequences
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             data = self.lacie_buffer.sample()
             obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
-            cpc_loss, _ = self.compute_contrastive_loss(
+            cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
                 obs, actions, masks, advantages)
 
             self.cpc_optimizer.zero_grad()
-            cpc_loss.backward()
+            (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
 
             # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
             #                                self.input_seq_encoder.parameters(),
@@ -246,5 +253,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
             'imitation loss': imitation_loss.item(),
             'imitation accuracy': imitation_accuracy,
             'contrastive loss': contrastive_loss,
-            'contrastive accuracy': contrastive_accuracy
+            'contrastive accuracy': contrastive_accuracy,
+            'regularize loss': regularize_loss
         }

@@ -33,11 +33,13 @@ class LacieAlgo(BaseAlgo):
                  lr,
                  value_coef,
                  entropy_coef,
+                 regularize_coef=0.05,
                  state_to_input_seq=None,
                  expert=None,
                  il_coef=1,
                  num_cpc_steps=10):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
+        self.regularize_coef = regularize_coef
         self.state_to_input_seq = state_to_input_seq
         self.num_cpc_steps = num_cpc_steps
 
@@ -95,6 +97,8 @@ class LacieAlgo(BaseAlgo):
         self.softmax = nn.Softmax(dim=-1)
         self.log_softmax = nn.LogSoftmax(dim=-1)
         self.cpc_criterion = nn.CrossEntropyLoss()
+        self.regularization_criterion = nn.MSELoss()
+
         self.upper_bound_clip_threshold = 1
         self.lower_bound_clip_threshold = 1
 
@@ -242,6 +246,7 @@ class LacieAlgo(BaseAlgo):
 
         # compute nce
         contrastive_loss = 0
+        regularization_loss = 0
         correct = 0
 
         label = torch.arange(0, n_processes).to(self.device)
@@ -258,12 +263,18 @@ class LacieAlgo(BaseAlgo):
             contrastive_loss += self.cpc_criterion(
                 f_value, label)
 
+            regularization_loss += self.regularization_criterion(
+                (self.softmax(f_value) * num_processes).mean(),
+                1
+            )
+
         # log loss
         contrastive_loss /= n_processes*num_steps
+        regularization_loss /= num_steps
         # accuracy
         accuracy = 1.*correct.item()/(n_processes*num_steps)
 
-        return contrastive_loss, accuracy
+        return contrastive_loss, accuracy, regularization_loss
 
     def compute_weighted_advantages(self, obs, actions, masks, advantages, n_envs=None):
         """
