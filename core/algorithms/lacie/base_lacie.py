@@ -21,7 +21,7 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    UPPER_BOUND_CLIP_THRESHOLD = 2
+    UPPER_BOUND_CLIP_THRESHOLD = 8
     LOWER_BOUND_CLIP_THRESHOLD = 1/100
     WEIGHT_CLIP_GROWTH_FACTOR = 1.001
     WEIGHT_CLIP_DECAY_FACTOR = 0.999
