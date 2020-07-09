@@ -97,7 +97,7 @@ class LacieAlgo(BaseAlgo):
         self.softmax = nn.Softmax(dim=-1)
         self.log_softmax = nn.LogSoftmax(dim=-1)
         self.cpc_criterion = nn.CrossEntropyLoss()
-        self.regularization_criterion = nn.MSELoss()
+        self.regularization_criterion = nn.L1Loss()
 
         self.upper_bound_clip_threshold = 1
         self.lower_bound_clip_threshold = 1
@@ -263,11 +263,8 @@ class LacieAlgo(BaseAlgo):
             contrastive_loss += self.cpc_criterion(
                 f_value, label)
 
-            regularization_loss += self.regularization_criterion(
-                (self.softmax(f_value) * num_processes).mean(),
-                1
-            )
-
+            regularization_loss += self.regularization_criterion(self.softmax(f_value) * n_processes,
+                                                                 torch.ones_like(f_value))
         # log loss
         contrastive_loss /= n_processes*num_steps
         regularization_loss /= num_steps
