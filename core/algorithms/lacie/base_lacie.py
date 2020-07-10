@@ -6,6 +6,7 @@ from torch import optim
 from itertools import chain
 
 import torch
+import random
 import torch.nn as nn
 
 
@@ -263,8 +264,8 @@ class LacieAlgo(BaseAlgo):
             contrastive_loss += self.cpc_criterion(
                 f_value, label)
 
-            regularization_loss += self.regularization_criterion(self.softmax(f_value) * n_processes,
-                                                                 torch.ones_like(f_value))
+            regularization_loss += ((self.softmax(f_value)
+                                     * n_processes).mean() - 1).pow(2)
         # log loss
         contrastive_loss /= n_processes*num_steps
         regularization_loss /= num_steps
@@ -318,6 +319,10 @@ class LacieAlgo(BaseAlgo):
                 self.upper_bound_clip_threshold
             )
 
+        if random.randint(0, 9) == 0:
+            print('weights mean: ', weights.mean())
+            print('weights max: ', weights.max())
+            print('weights min: ', weights.min())
         weighted_advantages = advantages[:, :n_envs] * \
             weights if n_envs else advantages*weights
 
