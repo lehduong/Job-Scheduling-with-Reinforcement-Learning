@@ -246,31 +246,23 @@ class LacieAlgo(BaseAlgo):
         encoded_input_seq = encoded_input_seq.permute(0, 2, 1)
 
         # compute nce
-        contrastive_loss = 0
-        regularization_loss = 0
-        correct = 0
+        # create label mask
+        label = torch.tensor(torch.arange(
+            0, n_processes).tolist() * num_steps).to(self.device)
 
-        label = torch.arange(0, n_processes).to(self.device)
+        # broadcast compute matmul
+        f_value = torch.bmm(
+            conditions, encoded_input_seq).reshape(-1, n_processes)
 
-        for i in range(num_steps):
-            # f(Z, s0, a0, R) WITHOUT exponential
-            f_value = torch.mm(conditions[i], encoded_input_seq[i])
-            # accuracy
-            correct += torch.sum(torch.eq(torch.argmax(self.softmax(
-                f_value), dim=1), torch.arange(0, n_processes).to(self.device)))
-            # nce
-            # contrastive_loss += torch.sum(
-            #    torch.diag(self.log_softmax(f_value)))
-            contrastive_loss += self.cpc_criterion(
-                f_value, label)
+        # compute accuracy
+        correct = torch.sum(torch.eq(torch.argmax(
+            self.softmax(f_value), dim=1), label))
+        accuracy = correct.item()/(n_processes*num_steps)
 
-            regularization_loss += ((self.softmax(f_value)
-                                     * n_processes).mean() - 1).pow(2)
-        # log loss
-        contrastive_loss /= n_processes*num_steps
-        regularization_loss /= num_steps
-        # accuracy
-        accuracy = 1.*correct.item()/(n_processes*num_steps)
+        # compute loss
+        contrastive_loss = self.cpc_criterion(f_value, label)
+        regularization_loss = (
+            (self.softmax(f_value) * n_processes).mean() - 1).pow(2)
 
         return contrastive_loss, accuracy, regularization_loss
 
