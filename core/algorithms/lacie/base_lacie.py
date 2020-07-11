@@ -22,10 +22,10 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    UPPER_BOUND_CLIP_THRESHOLD = 8
+    UPPER_BOUND_CLIP_THRESHOLD = 4
     LOWER_BOUND_CLIP_THRESHOLD = 1/100
-    WEIGHT_CLIP_GROWTH_FACTOR = 1.001
-    WEIGHT_CLIP_DECAY_FACTOR = 0.999
+    WEIGHT_CLIP_GROWTH_FACTOR = 1.002
+    WEIGHT_CLIP_DECAY_FACTOR = 0.998
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 96
 
@@ -261,8 +261,8 @@ class LacieAlgo(BaseAlgo):
 
         # compute loss
         contrastive_loss = self.cpc_criterion(f_value, label)
-        regularization_loss = (
-            (self.softmax(f_value) * n_processes).mean() - 1).pow(2)
+        regularization_loss = self.regularization_criterion(
+            self.softmax(f_value) * n_processes, torch.ones_like(f_value))
 
         return contrastive_loss, accuracy, regularization_loss
 
