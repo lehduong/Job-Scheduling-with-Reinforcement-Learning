@@ -26,9 +26,9 @@ class LacieAlgo(BaseAlgo):
     LOWER_BOUND_CLIP_THRESHOLD = 1/100
     WEIGHT_CLIP_GROWTH_FACTOR = 1.002
     WEIGHT_CLIP_DECAY_FACTOR = 0.998
-    INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 96
     POSITION_ENC_DIM = CPC_HIDDEN_DIM//3
+    INPUT_ENC_DIM = 32
 
     def __init__(self,
                  actor_critic,
@@ -82,7 +82,7 @@ class LacieAlgo(BaseAlgo):
 
         # input sequence encoder
         self.input_seq_encoder = nn.GRU(
-            self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
+            self.INPUT_ENC_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
         self.cpc_optimizer = optim.RMSprop(
@@ -135,6 +135,14 @@ class LacieAlgo(BaseAlgo):
         # INPUT SEQUENCES AND MASKS
         # the stochastic input will be defined by last 2 scalar
         input_seq = obs[1:, :, -2:]
+
+        # transform input_seq with fourier features
+        jobs, intervals = input_seq[:, :, 0].reshape(-1, 1), input_seq[:, :, 1].reshape(-1, 1)
+        jobs, intervals = self.encode_fourier_features(jobs, self.INPUT_ENC_DIM//2), self.encode_fourier_features(intervals, self.INPUT_ENC_DIM//2)
+        jobs = jobs.reshape(num_steps, n_processes, self.INPUT_ENC_DIM//2)
+        intervals = intervals.reshape(num_steps, n_processes, self.INPUT_ENC_DIM//2)
+        input_seq = torch.cat([jobs, intervals], dim=-1)
+
         masks = masks[1:].reshape(num_steps, n_processes)
         # reverse the input seq order since we want to compute from right to left
         input_seq = torch.flip(input_seq, [0])
@@ -345,9 +353,10 @@ class LacieAlgo(BaseAlgo):
         if (d//2)*2-d != 0:
             raise ValueError("Dimension must be even number...")
         N = x.shape[0]
-        position_enc = torch.zeros(N, d)
-        
-        idx = torch.arange(d//2).reshape(1, -1)
+
+        position_enc = torch.zeros(N, d).to(self.device)
+        idx = torch.arange(d//2).reshape(1, -1).to(self.device)
+
         position_enc[:, 0::2] = torch.sin(x*2**idx)
         position_enc[:, 1::2] = torch.cos(x*2**idx)
 
