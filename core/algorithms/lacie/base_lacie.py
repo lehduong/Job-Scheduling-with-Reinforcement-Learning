@@ -293,6 +293,8 @@ class LacieAlgo(BaseAlgo):
             # condition = STATE + ADVANTAGE
             conditions = torch.cat(
                 [encoded_advantages, encoded_states, encoded_actions], dim=-1)
+            conditions = self._encode_conditions(conditions)
+            
             # reshape to n_steps x hidden_dim x n_processes
             input_seq = input_seq.permute(0, 2, 1)
 
