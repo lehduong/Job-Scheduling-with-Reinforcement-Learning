@@ -182,10 +182,10 @@ class LACIE_A2C_Memory(LACIE_A2C):
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # update LACIE_Storage
-        self.lacie_buffer.insert(rollouts, advantages)
+        self.lacie_buffer.insert(rollouts, advantages.detach())
         # compute contrastive loss and accuracy
         contrastive_loss, contrastive_accuracy, regularize_loss = self.compute_contrastive_loss(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages)
+            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss = contrastive_loss.item()
         regularize_loss = regularize_loss.item()
 
@@ -213,7 +213,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
         # FIXME: Move the cpc training on top to verify if it can learn useful estimation
         if not self.use_memory_to_pred_weights:
             weighted_advantages = self.compute_weighted_advantages(
-                rollouts.obs, rollouts.actions, rollouts.masks, advantages)
+                rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         else:
             data = self.lacie_buffer.sample_most_recent()
             obs, actions, masks, sample_advantages = data['obs'], data[
