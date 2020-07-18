@@ -28,6 +28,7 @@ class LacieAlgo(BaseAlgo):
     WEIGHT_CLIP_DECAY_FACTOR = 0.998
     INPUT_SEQ_DIM = 2  # hard code for load balance env
     CPC_HIDDEN_DIM = 96
+    POSITION_ENC_DIM = CPC_HIDDEN_DIM//3
 
     def __init__(self,
                  actor_critic,
@@ -48,7 +49,7 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
+            nn.Linear(self.POSITION_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
             nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
@@ -184,8 +185,9 @@ class LacieAlgo(BaseAlgo):
         # ADVANTAGES
         # encode
         # n_steps  x n_process x hidden_dim/2
-        advantages = self.advantage_encoder(
-            advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1)
+        advantages = advantages.reshape(-1, 1)
+        advantages = self.encode_fourier_features(advantages, self.POSITION_ENC_DIM)
+        advantages = self.advantage_encoder(advantages).reshape(num_steps, n_processes, -1)
 
         return advantages
 
@@ -333,3 +335,20 @@ class LacieAlgo(BaseAlgo):
     def after_update(self):
         super().after_update()
         self.update_weight_clip_threshold()
+
+    def encode_fourier_features(self, x, d=10):
+        """
+            Encode input with fourier features according to https://arxiv.org/abs/2006.10739
+            :param x: torch.Tensor of shape Nx1
+            :param d: int - encoded dimension
+        """
+        if (d//2)*2-d != 0:
+            raise ValueError("Dimension must be even number...")
+        N = x.shape[0]
+        position_enc = torch.zeros(N, d)
+        
+        idx = torch.arange(d//2).reshape(1, -1)
+        position_enc[:, 0::2] = torch.sin(x*2**idx)
+        position_enc[:, 1::2] = torch.cos(x*2**idx)
+
+        return position_enc
