@@ -193,9 +193,9 @@ class LACIE_A2C_Memory(LACIE_A2C):
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
             data = self.lacie_buffer.sample()
-            obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
+            obs, actions, masks, sample_advantages = data['obs'], data['actions'], data['masks'], data['advantages']
             cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
-                obs, actions, masks, advantages)
+                obs, actions, masks, sample_advantages)
 
             self.cpc_optimizer.zero_grad()
             (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
