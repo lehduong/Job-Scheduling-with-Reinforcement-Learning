@@ -269,6 +269,10 @@ def main():
             cur_lr = utils.update_linear_schedule(
                 agent.optimizer, j, num_updates,
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
+            if args.algo.startswith('lacie'):
+                cur_lr = utils.update_linear_schedule(
+                    agent.cpc_optimizer, j, num_updates, args.lr
+                )
         else:
             cur_lr = agent.optimizer.param_groups[0]["lr"]
 
