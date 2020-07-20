@@ -234,35 +234,35 @@ def main():
         random_seed = args.seed if args.fix_job_sequence else args.seed + j
         # if using load_balance environment: \
         # we have to gradually increase number of stream jos
-        if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
-            args.num_stream_jobs = int(
-                args.num_stream_jobs * args.num_stream_jobs_factor)
+        # if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
+        #     args.num_stream_jobs = int(
+        #         args.num_stream_jobs * args.num_stream_jobs_factor)
 
-            # reconstruct environments to increase the number of stream jobs
-            # also alter the random seed
-            if not args.use_proper_time_limits:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=random_seed,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=False,
-                                     args=args)
-            else:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=random_seed,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=True,
-                                     max_episode_steps=args.max_episode_steps,
-                                     args=args)
+        #     # reconstruct environments to increase the number of stream jobs
+        #     # also alter the random seed
+        #     if not args.use_proper_time_limits:
+        #         envs = make_vec_envs(env_name=args.env_name,
+        #                              seed=random_seed,
+        #                              num_processes=args.num_processes,
+        #                              log_dir=log_dir,
+        #                              device=device,
+        #                              allow_early_resets=False,
+        #                              args=args)
+        #     else:
+        #         envs = make_vec_envs(env_name=args.env_name,
+        #                              seed=random_seed,
+        #                              num_processes=args.num_processes,
+        #                              log_dir=log_dir,
+        #                              device=device,
+        #                              allow_early_resets=True,
+        #                              max_episode_steps=args.max_episode_steps,
+        #                              args=args)
 
-            print("Increase the number of stream jobs to " +
-                  str(args.num_stream_jobs))
-            obs = envs.reset()
-            rollouts.obs[0].copy_(obs)
-            rollouts.to(device)
+        #     print("Increase the number of stream jobs to " +
+        #           str(args.num_stream_jobs))
+        #     obs = envs.reset()
+        #     rollouts.obs[0].copy_(obs)
+        #     rollouts.to(device)
 
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
