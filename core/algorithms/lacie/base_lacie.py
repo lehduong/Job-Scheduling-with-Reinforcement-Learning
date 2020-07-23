@@ -27,7 +27,7 @@ class LacieAlgo(BaseAlgo):
     WEIGHT_CLIP_GROWTH_FACTOR = 1.002
     WEIGHT_CLIP_DECAY_FACTOR = 0.998
     CPC_HIDDEN_DIM = 96
-    POSITION_ENC_DIM = CPC_HIDDEN_DIM//3
+    ADVANTAGE_ENC_DIM = CPC_HIDDEN_DIM//3
     INPUT_ENC_DIM = 32
 
     def __init__(self,
@@ -49,7 +49,7 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(self.POSITION_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
+            nn.Linear(self.ADVANTAGE_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
             nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
@@ -194,7 +194,7 @@ class LacieAlgo(BaseAlgo):
         # encode
         # n_steps  x n_process x hidden_dim/2
         advantages = advantages.reshape(-1, 1)
-        advantages = self.encode_fourier_features(advantages, self.POSITION_ENC_DIM)
+        advantages = self.encode_fourier_features(advantages, self.ADVANTAGE_ENC_DIM)
         advantages = self.advantage_encoder(advantages).reshape(num_steps, n_processes, -1)
 
         return advantages

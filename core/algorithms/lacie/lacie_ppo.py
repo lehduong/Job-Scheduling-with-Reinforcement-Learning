@@ -15,6 +15,7 @@ class LACIE_PPO(LacieAlgo):
                  num_mini_batch,
                  value_loss_coef,
                  entropy_coef,
+                 regularize_coef,
                  state_to_input_seq=None,
                  lr=None,
                  eps=None,
@@ -27,6 +28,7 @@ class LACIE_PPO(LacieAlgo):
                          lr=lr,
                          value_coef=value_loss_coef,
                          entropy_coef=entropy_coef,
+                         regularize_coef=regularize_coef,
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
                          il_coef=il_coef,
@@ -163,6 +165,7 @@ class LACIE_PPO_Memory(LACIE_PPO):
                  num_mini_batch,
                  value_loss_coef,
                  entropy_coef,
+                 regularize_coef,
                  state_to_input_seq=None,
                  lr=None,
                  eps=None,
@@ -180,6 +183,7 @@ class LACIE_PPO_Memory(LACIE_PPO):
                          num_mini_batch,
                          value_loss_coef,
                          entropy_coef,
+                         regularize_coef,
                          state_to_input_seq,
                          lr,
                          eps,
@@ -204,6 +208,27 @@ class LACIE_PPO_Memory(LACIE_PPO):
         contrastive_loss_epoch, contrastive_accuracy_epoch = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss_epoch = contrastive_loss_epoch.item()
+
+        # ---------------------------------------------------------------------------
+        # learn cpc model for n steps
+
+        for _ in range(self.num_cpc_steps):
+            data = self.lacie_buffer.sample()
+            obs, actions, masks, sample_advantages = data['obs'], data['actions'], data['masks'], data['advantages']
+            cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
+                obs, actions, masks, sample_advantages)
+
+            self.cpc_optimizer.zero_grad()
+            (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
+
+            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+                                           self.input_seq_encoder.parameters(),
+                                           self.state_encoder.parameters(),
+                                           self.condition_encoder.parameters(),
+                                           self.action_encoder.parameters()),
+                                     self.max_grad_norm)
+
+            self.cpc_optimizer.step()
 
         # weighted advantages
         if not self.use_memory_to_pred_weights:
@@ -297,27 +322,6 @@ class LACIE_PPO_Memory(LACIE_PPO):
         dist_entropy_epoch /= num_updates
         imitation_loss_epoch /= num_updates
         accuracy_epoch /= num_updates
-
-        # ---------------------------------------------------------------------------
-        # learn cpc model for n steps
-
-        for _ in range(self.num_cpc_steps):
-            data = self.lacie_buffer.sample()
-            obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
-            cpc_loss, _ = self.compute_contrastive_loss(
-                obs, actions, masks, advantages)
-
-            self.cpc_optimizer.zero_grad()
-            cpc_loss.backward()
-
-            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
-                                           self.input_seq_encoder.parameters(),
-                                           self.state_encoder.parameters(),
-                                           self.condition_encoder.parameters(),
-                                           self.action_encoder.parameters()),
-                                     self.max_grad_norm)
-
-            self.cpc_optimizer.step()
 
         self.after_update()
 
