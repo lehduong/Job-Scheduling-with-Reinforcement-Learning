@@ -18,6 +18,7 @@ class LACIE_A2C(LacieAlgo):
                  actor_critic,
                  value_coef,
                  entropy_coef,
+                 regularize_coef,
                  eps=None,
                  alpha=None,
                  state_to_input_seq=None,
@@ -30,6 +31,7 @@ class LACIE_A2C(LacieAlgo):
                          lr=lr,
                          value_coef=value_coef,
                          entropy_coef=entropy_coef,
+                         regularize_coef=regularize_coef,
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
                          il_coef=il_coef,
@@ -52,35 +54,40 @@ class LACIE_A2C(LacieAlgo):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        returns = rollouts.returns[:-1]
 
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
 
         # LEARNING CONTRASTIVE PREDICTIVE MODEL
         # compute contrastive loss and accuracy
-        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+        contrastive_loss, contrastive_accuracy, regularize_loss = self.compute_contrastive_loss(
+            rollouts.obs, rollouts.actions, rollouts.masks, returns)
         contrastive_loss = contrastive_loss.item()
+        regularize_loss = regularize_loss.item()
         # computed weighted advantage according to its dependency with input sequences
-        # IMPORTANCE: we need to compute the weighted before learn cpc model
-        weighted_advantages = self.compute_weighted_advantages(
-            rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+
         # learn cpc model for n steps
         for _ in range(self.num_cpc_steps):
-            cpc_loss, _ = self.compute_contrastive_loss(
-                rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
+            cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
+                rollouts.obs, rollouts.actions, rollouts.masks, returns)
 
             self.cpc_optimizer.zero_grad()
-            cpc_loss.backward()
+            (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
 
-            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
-                                           self.input_seq_encoder.parameters(),
-                                           self.state_encoder.parameters(),
-                                           self.condition_encoder.parameters(),
-                                           self.action_encoder.parameters()),
-                                     self.max_grad_norm)
+            # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+            #                                self.input_seq_encoder.parameters(),
+            #                                self.state_encoder.parameters(),
+            #                                self.condition_encoder.parameters(),
+            #                                self.action_encoder.parameters()),
+            #                          self.max_grad_norm)
 
             self.cpc_optimizer.step()
+
+        # IMPORTANCE: we need to compute the weighted before learn cpc model
+        # FIXME: Move to training to top to verify if the model can estimate density ratio
+        weighted_advantages = self.compute_weighted_advantages(
+            rollouts.obs, rollouts.actions, rollouts.masks, returns) - values
 
         # Action loss of Actor Net
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()
@@ -114,7 +121,8 @@ class LACIE_A2C(LacieAlgo):
             'imitation loss': imitation_loss.item(),
             'imitation accuracy': imitation_accuracy,
             'contrastive loss': contrastive_loss,
-            'contrastive accuracy': contrastive_accuracy
+            'contrastive accuracy': contrastive_accuracy,
+            'regularize loss': regularize_loss
         }
 
 
@@ -123,6 +131,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
                  actor_critic,
                  value_coef,
                  entropy_coef,
+                 regularize_coef,
                  eps=None,
                  alpha=None,
                  state_to_input_seq=None,
@@ -137,6 +146,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
         super().__init__(actor_critic,
                          value_coef,
                          entropy_coef,
+                         regularize_coef,
                          eps,
                          alpha,
                          state_to_input_seq,
@@ -165,6 +175,7 @@ class LACIE_A2C_Memory(LACIE_A2C):
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        returns = rollouts.returns[:-1]
 
         # Value loss for updating Critic Net
         value_loss = advantages.pow(2).mean()
@@ -173,12 +184,33 @@ class LACIE_A2C_Memory(LACIE_A2C):
         # update LACIE_Storage
         self.lacie_buffer.insert(rollouts, advantages.detach())
         # compute contrastive loss and accuracy
-        contrastive_loss, contrastive_accuracy = self.compute_contrastive_loss(
+        contrastive_loss, contrastive_accuracy, regularize_loss = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss = contrastive_loss.item()
+        regularize_loss = regularize_loss.item()
 
         # computed weighted advantage according to its dependency with input sequences
+        # learn cpc model for n steps
+        for _ in range(self.num_cpc_steps):
+            data = self.lacie_buffer.sample()
+            obs, actions, masks, sample_advantages = data['obs'], data['actions'], data['masks'], data['advantages']
+            cpc_loss, _, cpc_regularize_loss = self.compute_contrastive_loss(
+                obs, actions, masks, sample_advantages)
+
+            self.cpc_optimizer.zero_grad()
+            (cpc_loss + self.regularize_coef * cpc_regularize_loss).backward()
+
+            # nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
+            #                                self.input_seq_encoder.parameters(),
+            #                                self.state_encoder.parameters(),
+            #                                self.condition_encoder.parameters(),
+            #                                self.action_encoder.parameters()),
+            #                          self.max_grad_norm)
+
+            self.cpc_optimizer.step()
+
         # IMPORTANCE: we need to compute the weighted before learn cpc model
+        # FIXME: Move the cpc training on top to verify if it can learn useful estimation
         if not self.use_memory_to_pred_weights:
             weighted_advantages = self.compute_weighted_advantages(
                 rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
@@ -188,24 +220,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
                 'actions'], data['masks'], data['advantages']
             weighted_advantages = self.compute_weighted_advantages(
                 obs, actions, masks, sample_advantages, rollouts.actions.shape[1])
-        # learn cpc model for n steps
-        for _ in range(self.num_cpc_steps):
-            data = self.lacie_buffer.sample()
-            obs, actions, masks, advantages = data['obs'], data['actions'], data['masks'], data['advantages']
-            cpc_loss, _ = self.compute_contrastive_loss(
-                obs, actions, masks, advantages)
-
-            self.cpc_optimizer.zero_grad()
-            cpc_loss.backward()
-
-            nn.utils.clip_grad_norm_(chain(self.advantage_encoder.parameters(),
-                                           self.input_seq_encoder.parameters(),
-                                           self.state_encoder.parameters(),
-                                           self.condition_encoder.parameters(),
-                                           self.action_encoder.parameters()),
-                                     self.max_grad_norm)
-
-            self.cpc_optimizer.step()
 
         # Action loss of Actor Net
         action_loss = -(weighted_advantages.detach() * action_log_probs).mean()
@@ -239,5 +253,6 @@ class LACIE_A2C_Memory(LACIE_A2C):
             'imitation loss': imitation_loss.item(),
             'imitation accuracy': imitation_accuracy,
             'contrastive loss': contrastive_loss,
-            'contrastive accuracy': contrastive_accuracy
+            'contrastive accuracy': contrastive_accuracy,
+            'regularize loss': regularize_loss
         }

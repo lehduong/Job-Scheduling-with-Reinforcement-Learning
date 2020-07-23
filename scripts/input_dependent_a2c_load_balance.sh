@@ -1,17 +1,20 @@
-!python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1.05\
---num-curriculum-time 1 \
---algo lacie_a2c \
---num-env-steps 20000000\
---gamma 0.97\
---use-gae \
---entropy-coef 0.001\
---load-balance-service-rates 0.5 1.5 2.5 3.5 4.5 5.5 6.5 \
---eval-interval 50\
---reward-norm-factor 10000\
---lr 0.0007\
---num-mini-batch 32\
---adapt-lr 1e-3\
---num-inner-steps 5\
---num-process 32 --num-steps 100 --log-interval 10 \
---seed 26 --recurrent-policy --use-linear-lr-decay\
---log-dir logs
+python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1.05\
+                --num-curriculum-time 1 \
+                --algo lacie_a2c_memory \
+                --num-env-steps 200000000\
+                --gamma 1\
+                --entropy-coef 0.01\
+                --regularize-coef 1\
+                --load-balance-service-rates 0.15 0.25 0.35 0.45 0.55 0.65 0.75 0.85 0.95 1.05 \
+                --reward-norm-factor 10000\
+                --lr 0.001\
+                --num-mini-batch 32\
+                --eval-interval 100\
+                --adapt-lr 1e-3\
+                --num-inner-steps 5\
+                --lacie-batch-size 64\
+                --lacie-buffer-size 400\
+                --lacie-num-iter 40\
+                --num-process 16 --num-steps 1000 --log-interval 5 \
+                --seed 100 --use-memory-to-pred-weights --use-linear-lr-decay\
+                --log-dir lacie_a2c

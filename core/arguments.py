@@ -49,6 +49,11 @@ def get_args():
         default=0.5,
         help='value loss coefficient (default: 0.5)')
     parser.add_argument(
+        '--regularize-coef',
+        type=float,
+        default=0.05,
+        help='cpc regularize loss coefficient (default: 0.05)')
+    parser.add_argument(
         '--max-grad-norm',
         type=float,
         default=0.5,
@@ -98,7 +103,7 @@ def get_args():
     parser.add_argument(
         '--eval-interval',
         type=int,
-        default=50,
+        default=None,
         help='eval interval, one eval per n updates (default: None)')
     parser.add_argument(
         '--num-env-steps',

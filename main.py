@@ -14,6 +14,7 @@ from core.envs import make_vec_envs
 from core.storage import RolloutStorage, LacieStorage
 from evaluation import evaluate
 from tensorboardX import SummaryWriter
+from utils.plot import plot
 
 
 def main():
@@ -135,6 +136,7 @@ def main():
             actor_critic=actor_critic,
             value_coef=args.value_loss_coef,
             entropy_coef=args.entropy_coef,
+            regularize_coef=args.regularize_coef,
             lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
@@ -155,6 +157,7 @@ def main():
             actor_critic=actor_critic,
             value_coef=args.value_loss_coef,
             entropy_coef=args.entropy_coef,
+            regularize_coef=args.regularize_coef,
             lr=args.lr,
             eps=args.eps,
             alpha=args.alpha,
@@ -174,6 +177,7 @@ def main():
             args.num_mini_batch,
             args.value_loss_coef,
             args.entropy_coef,
+            regularize_coef=args.regularize_coef,
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm,
@@ -194,6 +198,7 @@ def main():
             args.num_mini_batch,
             args.value_loss_coef,
             args.entropy_coef,
+            regularize_coef=args.regularize_coef,
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm,
@@ -229,41 +234,45 @@ def main():
         random_seed = args.seed if args.fix_job_sequence else args.seed + j
         # if using load_balance environment: \
         # we have to gradually increase number of stream jos
-        if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
-            args.num_stream_jobs = int(
-                args.num_stream_jobs * args.num_stream_jobs_factor)
+        # if (args.env_name == 'load_balance') and ((j + 1) % curriculum_interval) == 0:
+        #     args.num_stream_jobs = int(
+        #         args.num_stream_jobs * args.num_stream_jobs_factor)
 
-            # reconstruct environments to increase the number of stream jobs
-            # also alter the random seed
-            if not args.use_proper_time_limits:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=random_seed,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=False,
-                                     args=args)
-            else:
-                envs = make_vec_envs(env_name=args.env_name,
-                                     seed=random_seed,
-                                     num_processes=args.num_processes,
-                                     log_dir=log_dir,
-                                     device=device,
-                                     allow_early_resets=True,
-                                     max_episode_steps=args.max_episode_steps,
-                                     args=args)
+        #     # reconstruct environments to increase the number of stream jobs
+        #     # also alter the random seed
+        #     if not args.use_proper_time_limits:
+        #         envs = make_vec_envs(env_name=args.env_name,
+        #                              seed=random_seed,
+        #                              num_processes=args.num_processes,
+        #                              log_dir=log_dir,
+        #                              device=device,
+        #                              allow_early_resets=False,
+        #                              args=args)
+        #     else:
+        #         envs = make_vec_envs(env_name=args.env_name,
+        #                              seed=random_seed,
+        #                              num_processes=args.num_processes,
+        #                              log_dir=log_dir,
+        #                              device=device,
+        #                              allow_early_resets=True,
+        #                              max_episode_steps=args.max_episode_steps,
+        #                              args=args)
 
-            print("Increase the number of stream jobs to " +
-                  str(args.num_stream_jobs))
-            obs = envs.reset()
-            rollouts.obs[0].copy_(obs)
-            rollouts.to(device)
+        #     print("Increase the number of stream jobs to " +
+        #           str(args.num_stream_jobs))
+        #     obs = envs.reset()
+        #     rollouts.obs[0].copy_(obs)
+        #     rollouts.to(device)
 
         # decrease learning rate linearly
         if args.use_linear_lr_decay:
             cur_lr = utils.update_linear_schedule(
                 agent.optimizer, j, num_updates,
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
+            if args.algo.startswith('lacie'):
+                cur_lr = utils.update_linear_schedule(
+                    agent.cpc_optimizer, j, num_updates, args.lr
+                )
         else:
             cur_lr = agent.optimizer.param_groups[0]["lr"]
 
@@ -336,6 +345,11 @@ def main():
             print(result_str)
 
             writer.add_scalar("train/reward", np.mean(episode_rewards), j)
+            for k, v in results.items():
+                writer.add_scalar("train/"+k.replace(' ', '_'), v, j)
+
+            plot(log_dir, 'load-balance', args.algo,
+                 args.num_env_steps)
 
         # EVALUATE performance of learned policy along with heuristic
         if (args.eval_interval is not None and len(episode_rewards) > 1
@@ -348,6 +362,8 @@ def main():
                 'eval/reward',
                 {k: np.mean(v) for k, v in eval_results.items()},
                 j)
+            # plot(eval_log_dir, 'load-balance', args.algo,
+            #     args.num_env_steps)
 
     writer.close()
 

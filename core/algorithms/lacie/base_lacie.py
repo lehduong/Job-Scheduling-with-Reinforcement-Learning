@@ -6,6 +6,7 @@ from torch import optim
 from itertools import chain
 
 import torch
+import random
 import torch.nn as nn
 
 
@@ -21,22 +22,26 @@ class LacieAlgo(BaseAlgo):
                     the signature of function should be: foo(states) where states is torch.Tensor of shape \
                     T x N_processes x Obs_shape
     """
-    MAX_WEIGHT_CLIP_THRESHOLD = 16
-    WEIGHT_CLIP_EXPONENTIAL_FACTOR = 1.001
-    INPUT_SEQ_DIM = 2  # hard code for load balance env
-    CPC_HIDDEN_DIM = 48
-    TEMPERATURE = 2
+    UPPER_BOUND_CLIP_THRESHOLD = 4
+    LOWER_BOUND_CLIP_THRESHOLD = 1/100
+    WEIGHT_CLIP_GROWTH_FACTOR = 1.002
+    WEIGHT_CLIP_DECAY_FACTOR = 0.998
+    CPC_HIDDEN_DIM = 96
+    POSITION_ENC_DIM = CPC_HIDDEN_DIM//3
+    INPUT_ENC_DIM = 32
 
     def __init__(self,
                  actor_critic,
                  lr,
                  value_coef,
                  entropy_coef,
+                 regularize_coef=0.05,
                  state_to_input_seq=None,
                  expert=None,
                  il_coef=1,
                  num_cpc_steps=10):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
+        self.regularize_coef = regularize_coef
         self.state_to_input_seq = state_to_input_seq
         self.num_cpc_steps = num_cpc_steps
 
@@ -44,8 +49,8 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(1, self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(inplace=True),
+            nn.Linear(self.POSITION_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
         ).to(self.device)
@@ -55,7 +60,7 @@ class LacieAlgo(BaseAlgo):
         self.state_encoder = nn.Sequential(
             nn.Linear(self.actor_critic.obs_shape[0],
                       self.CPC_HIDDEN_DIM//3, bias=True),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
@@ -63,24 +68,24 @@ class LacieAlgo(BaseAlgo):
         self.action_encoder = nn.Sequential(
             nn.Embedding(self.actor_critic.action_space.n,
                          self.CPC_HIDDEN_DIM//3),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3, self.CPC_HIDDEN_DIM//3)
         ).to(self.device)
 
         # encoding conditions (i.e. advantages + states + actions)
         self.condition_encoder = nn.Sequential(
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM, bias=True),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM, self.CPC_HIDDEN_DIM)
         ).to(self.device)
 
         # input sequence encoder
         self.input_seq_encoder = nn.GRU(
-            self.INPUT_SEQ_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
+            self.INPUT_ENC_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.Adam(
+        self.cpc_optimizer = optim.RMSprop(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
@@ -91,9 +96,13 @@ class LacieAlgo(BaseAlgo):
             lr=lr
         )
 
-        self.softmax = nn.Softmax(dim=0)
-        self.log_softmax = nn.LogSoftmax(dim=0)
-        self.weight_clip_threshold = 1
+        self.softmax = nn.Softmax(dim=-1)
+        self.log_softmax = nn.LogSoftmax(dim=-1)
+        self.cpc_criterion = nn.CrossEntropyLoss()
+        self.regularization_criterion = nn.L1Loss()
+
+        self.upper_bound_clip_threshold = 1
+        self.lower_bound_clip_threshold = 1
 
         # Initialize weights
         def _weights_init(m):
@@ -126,6 +135,14 @@ class LacieAlgo(BaseAlgo):
         # INPUT SEQUENCES AND MASKS
         # the stochastic input will be defined by last 2 scalar
         input_seq = obs[1:, :, -2:]
+
+        # transform input_seq with fourier features
+        jobs, intervals = input_seq[:, :, 0].reshape(-1, 1), input_seq[:, :, 1].reshape(-1, 1)
+        jobs, intervals = self.encode_fourier_features(jobs, self.INPUT_ENC_DIM//2), self.encode_fourier_features(intervals, self.INPUT_ENC_DIM//2)
+        jobs = jobs.reshape(num_steps, n_processes, self.INPUT_ENC_DIM//2)
+        intervals = intervals.reshape(num_steps, n_processes, self.INPUT_ENC_DIM//2)
+        input_seq = torch.cat([jobs, intervals], dim=-1)
+
         masks = masks[1:].reshape(num_steps, n_processes)
         # reverse the input seq order since we want to compute from right to left
         input_seq = torch.flip(input_seq, [0])
@@ -176,8 +193,9 @@ class LacieAlgo(BaseAlgo):
         # ADVANTAGES
         # encode
         # n_steps  x n_process x hidden_dim/2
-        advantages = self.advantage_encoder(
-            advantages.reshape(-1, 1)).reshape(num_steps, n_processes, -1)
+        advantages = advantages.reshape(-1, 1)
+        advantages = self.encode_fourier_features(advantages, self.POSITION_ENC_DIM)
+        advantages = self.advantage_encoder(advantages).reshape(num_steps, n_processes, -1)
 
         return advantages
 
@@ -235,27 +253,28 @@ class LacieAlgo(BaseAlgo):
             [encoded_advantages, encoded_states, encoded_actions], dim=-1)
         conditions = self._encode_conditions(conditions)
         # reshape to n_steps x hidden_dim x n_processes
-        conditions = conditions.permute(0, 2, 1)
+        encoded_input_seq = encoded_input_seq.permute(0, 2, 1)
 
         # compute nce
-        contrastive_loss = 0
-        correct = 0
-        for i in range(num_steps):
-            # f(Z, s0, a0, R) WITHOUT exponential
-            f_value = torch.mm(encoded_input_seq[i], conditions[i])
-            # accuracy
-            correct += torch.sum(torch.eq(torch.argmax(self.softmax(
-                f_value), dim=0), torch.arange(0, n_processes).to(self.device)))
-            # nce
-            contrastive_loss += torch.sum(
-                torch.diag(self.log_softmax(f_value)))
+        # create label mask
+        label = torch.tensor(torch.arange(
+            0, n_processes).tolist() * num_steps).to(self.device)
 
-        # log loss
-        contrastive_loss /= -1*n_processes*num_steps
-        # accuracy
-        accuracy = 1.*correct.item()/(n_processes*num_steps)
+        # broadcast compute matmul
+        f_value = torch.bmm(
+            conditions, encoded_input_seq).reshape(-1, n_processes)
 
-        return contrastive_loss, accuracy
+        # compute accuracy
+        correct = torch.sum(torch.eq(torch.argmax(
+            self.softmax(f_value), dim=1), label))
+        accuracy = correct.item()/(n_processes*num_steps)
+
+        # compute loss
+        contrastive_loss = self.cpc_criterion(f_value, label)
+        regularization_loss = self.regularization_criterion(
+            self.softmax(f_value) * n_processes, torch.ones_like(f_value))
+
+        return contrastive_loss, accuracy, regularization_loss
 
     def compute_weighted_advantages(self, obs, actions, masks, advantages, n_envs=None):
         """
@@ -274,8 +293,10 @@ class LacieAlgo(BaseAlgo):
             # condition = STATE + ADVANTAGE
             conditions = torch.cat(
                 [encoded_advantages, encoded_states, encoded_actions], dim=-1)
+            conditions = self._encode_conditions(conditions)
+            
             # reshape to n_steps x hidden_dim x n_processes
-            conditions = conditions.permute(0, 2, 1)
+            input_seq = input_seq.permute(0, 2, 1)
 
             # weight of each advantage score
             weights = torch.zeros((num_steps, n_envs if n_envs else batch_size, 1)).to(
@@ -284,7 +305,7 @@ class LacieAlgo(BaseAlgo):
             for i in range(num_steps):
                 # n_steps x n_steps
                 density_ratio = self.softmax(
-                    torch.mm(input_seq[i], conditions[i]))
+                    torch.mm(conditions[i], input_seq[i]))
                 if n_envs:
                     # N is not None => used memory for predicting weights
                     density_ratio = density_ratio[:n_envs, :n_envs]
@@ -295,15 +316,50 @@ class LacieAlgo(BaseAlgo):
                 weights[i] = density_ratio
 
             weights *= batch_size
+            weights = 1/(weights+1e-5)
             weights = torch.clamp(
-                weights, 1/self.MAX_WEIGHT_CLIP_THRESHOLD, self.MAX_WEIGHT_CLIP_THRESHOLD)
-            weights = 1/weights
+                weights,
+                self.lower_bound_clip_threshold,
+                self.upper_bound_clip_threshold
+            )
 
+        if random.randint(0, 9) == 0:
+            print('weights mean: ', weights.mean())
+            print('weights max: ', weights.max())
+            print('weights min: ', weights.min())
         weighted_advantages = advantages[:, :n_envs] * \
             weights if n_envs else advantages*weights
 
         return weighted_advantages
 
     def update_weight_clip_threshold(self):
-        self.weight_clip_threshold = min(self.weight_clip_threshold * self.WEIGHT_CLIP_EXPONENTIAL_FACTOR,
-                                         self.MAX_WEIGHT_CLIP_THRESHOLD)
+        self.upper_bound_clip_threshold = min(
+            self.upper_bound_clip_threshold * self.WEIGHT_CLIP_GROWTH_FACTOR,
+            self.UPPER_BOUND_CLIP_THRESHOLD
+        )
+        self.lower_bound_clip_threshold = max(
+            self.lower_bound_clip_threshold * self.WEIGHT_CLIP_DECAY_FACTOR,
+            self.LOWER_BOUND_CLIP_THRESHOLD
+        )
+
+    def after_update(self):
+        super().after_update()
+        self.update_weight_clip_threshold()
+
+    def encode_fourier_features(self, x, d=10):
+        """
+            Encode input with fourier features according to https://arxiv.org/abs/2006.10739
+            :param x: torch.Tensor of shape Nx1
+            :param d: int - encoded dimension
+        """
+        if (d//2)*2-d != 0:
+            raise ValueError("Dimension must be even number...")
+        N = x.shape[0]
+
+        position_enc = torch.zeros(N, d).to(self.device)
+        idx = torch.arange(d//2).reshape(1, -1).to(self.device)
+
+        position_enc[:, 0::2] = torch.sin(x*2**idx)
+        position_enc[:, 1::2] = torch.cos(x*2**idx)
+
+        return position_enc
