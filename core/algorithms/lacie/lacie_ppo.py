@@ -205,7 +205,7 @@ class LACIE_PPO_Memory(LACIE_PPO):
         self.lacie_buffer.insert(rollouts, advantages.detach())
 
         # contrastive learning loss
-        contrastive_loss_epoch, contrastive_accuracy_epoch = self.compute_contrastive_loss(
+        contrastive_loss_epoch, contrastive_accuracy_epoch, _ = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss_epoch = contrastive_loss_epoch.item()
 
