@@ -34,7 +34,7 @@ class LACIE_PPO(LacieAlgo):
                          expert=expert,
                          il_coef=il_coef,
                          num_cpc_steps=num_cpc_steps,
-                         cpc_lr=cpc_lr=)
+                         cpc_lr=cpc_lr)
 
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
