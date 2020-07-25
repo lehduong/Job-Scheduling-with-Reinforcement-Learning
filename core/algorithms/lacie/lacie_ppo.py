@@ -23,7 +23,8 @@ class LACIE_PPO(LacieAlgo):
                  use_clipped_value_loss=True,
                  expert=None,
                  il_coef=1,
-                 num_cpc_steps=10):
+                 num_cpc_steps=10,
+                 cpc_lr=1e-3):
         super().__init__(actor_critic=actor_critic,
                          lr=lr,
                          value_coef=value_loss_coef,
@@ -32,7 +33,8 @@ class LACIE_PPO(LacieAlgo):
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
                          il_coef=il_coef,
-                         num_cpc_steps=num_cpc_steps)
+                         num_cpc_steps=num_cpc_steps,
+                         cpc_lr=cpc_lr=)
 
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
@@ -176,7 +178,8 @@ class LACIE_PPO_Memory(LACIE_PPO):
                  num_cpc_steps=10,
                  lacie_buffer=None,
                  lacie_batch_size=64,
-                 use_memory_to_pred_weights=False):
+                 use_memory_to_pred_weights=False,
+                 cpc_lr=1e-3):
         super().__init__(actor_critic,
                          clip_param,
                          ppo_epoch,
@@ -191,7 +194,8 @@ class LACIE_PPO_Memory(LACIE_PPO):
                          use_clipped_value_loss,
                          expert,
                          il_coef,
-                         num_cpc_steps)
+                         num_cpc_steps,
+                         cpc_lr=cpc_lr)
 
         self.lacie_buffer = lacie_buffer
         self.lacie_buffer_size = lacie_batch_size
@@ -205,9 +209,10 @@ class LACIE_PPO_Memory(LACIE_PPO):
         self.lacie_buffer.insert(rollouts, advantages.detach())
 
         # contrastive learning loss
-        contrastive_loss_epoch, contrastive_accuracy_epoch, _ = self.compute_contrastive_loss(
+        contrastive_loss_epoch, contrastive_accuracy_epoch, regularize_loss_epoch = self.compute_contrastive_loss(
             rollouts.obs, rollouts.actions, rollouts.masks, advantages.detach())
         contrastive_loss_epoch = contrastive_loss_epoch.item()
+        regularize_loss_epoch = regularize_loss_epoch.item()
 
         # ---------------------------------------------------------------------------
         # learn cpc model for n steps
@@ -332,5 +337,6 @@ class LACIE_PPO_Memory(LACIE_PPO):
             "imitation loss": imitation_loss_epoch,
             "accuracy": accuracy_epoch,
             "contrastive loss": contrastive_loss_epoch,
-            "contrastive accuracy": contrastive_accuracy_epoch
+            "contrastive accuracy": contrastive_accuracy_epoch,
+            "regularization loss": regularize_loss_epoch
         }

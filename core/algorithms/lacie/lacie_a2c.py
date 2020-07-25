@@ -26,7 +26,8 @@ class LACIE_A2C(LacieAlgo):
                  max_grad_norm=None,
                  expert=None,
                  il_coef=1,
-                 num_cpc_steps=10):
+                 num_cpc_steps=10,
+                 cpc_lr=1e-3):
         super().__init__(actor_critic=actor_critic,
                          lr=lr,
                          value_coef=value_coef,
@@ -35,7 +36,8 @@ class LACIE_A2C(LacieAlgo):
                          state_to_input_seq=state_to_input_seq,
                          expert=expert,
                          il_coef=il_coef,
-                         num_cpc_steps=num_cpc_steps)
+                         num_cpc_steps=num_cpc_steps,
+                         cpc_lr=cpc_lr)
         self.max_grad_norm = max_grad_norm
 
     def update(self, rollouts):
@@ -142,7 +144,8 @@ class LACIE_A2C_Memory(LACIE_A2C):
                  num_cpc_steps=10,
                  lacie_batch_size=64,
                  lacie_buffer=None,
-                 use_memory_to_pred_weights=False):
+                 use_memory_to_pred_weights=False,
+                 cpc_lr=1e-3):
         super().__init__(actor_critic,
                          value_coef,
                          entropy_coef,
@@ -154,7 +157,8 @@ class LACIE_A2C_Memory(LACIE_A2C):
                          max_grad_norm,
                          expert,
                          il_coef,
-                         num_cpc_steps)
+                         num_cpc_steps,
+                         cpc_lr)
         self.lacie_batch_size = lacie_batch_size
         self.lacie_buffer = lacie_buffer
         self.use_memory_to_pred_weights = use_memory_to_pred_weights

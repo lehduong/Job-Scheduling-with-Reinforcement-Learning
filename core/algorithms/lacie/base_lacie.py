@@ -39,7 +39,8 @@ class LacieAlgo(BaseAlgo):
                  state_to_input_seq=None,
                  expert=None,
                  il_coef=1,
-                 num_cpc_steps=10):
+                 num_cpc_steps=10,
+                 cpc_lr=0.001):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
         self.regularize_coef = regularize_coef
         self.state_to_input_seq = state_to_input_seq
@@ -85,7 +86,7 @@ class LacieAlgo(BaseAlgo):
             self.INPUT_ENC_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.RMSprop(
+        self.cpc_optimizer = optim.Adam(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
@@ -93,7 +94,7 @@ class LacieAlgo(BaseAlgo):
                 self.action_encoder.parameters(),
                 self.condition_encoder.parameters()
             ),
-            lr=lr
+            lr=cpc_lr
         )
 
         self.softmax = nn.Softmax(dim=-1)
