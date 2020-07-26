@@ -86,7 +86,7 @@ class LacieAlgo(BaseAlgo):
             self.INPUT_ENC_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.RMSprop(
+        self.cpc_optimizer = optim.Adam(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),

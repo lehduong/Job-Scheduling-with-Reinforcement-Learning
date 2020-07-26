@@ -1,9 +1,9 @@
 python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1.05\
                 --num-curriculum-time 1 \
-                --algo lacie_ppo_memory \
+                --algo ppo \
                 --clip-param 0.1\
                 --ppo-epoch 4\
-                --num-env-steps 200000000\
+                --num-env-steps 50000000\
                 --gamma 1\
                 --entropy-coef 0.01\
                 --regularize-coef 1\
@@ -11,12 +11,6 @@ python main.py --num-stream-jobs 1000 --num-stream-jobs-factor 1.05\
                 --reward-norm-factor 10000\
                 --lr 0.00025\
                 --num-mini-batch 4\
-                --eval-interval 100\
-                --adapt-lr 1e-3\
-                --num-inner-steps 5\
-                --lacie-batch-size 64\
-                --lacie-buffer-size 400\
-                --lacie-num-iter 40\
                 --num-process 16 --num-steps 1000 --log-interval 5 \
                 --seed 100 --use-memory-to-pred-weights --use-linear-lr-decay\
-                --log-dir lacie_ppo
+                --log-dir ppo_1                                   
