@@ -29,8 +29,6 @@ class PPO(BaseAlgo):
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
 
-        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
-
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]

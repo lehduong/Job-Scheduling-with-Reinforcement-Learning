@@ -17,7 +17,7 @@ class BaseAlgo(ABC):
                  expert=None,
                  il_coef=1):
         self.actor_critic = actor_critic
-        self.optimizer = optim.RMSprop(actor_critic.parameters(), lr)
+        self.optimizer = optim.Adam(actor_critic.parameters(), lr)
 
         self.value_coef = value_coef
         self.entropy_coef = entropy_coef

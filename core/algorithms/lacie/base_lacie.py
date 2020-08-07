@@ -27,7 +27,7 @@ class LacieAlgo(BaseAlgo):
     WEIGHT_CLIP_GROWTH_FACTOR = 1.002
     WEIGHT_CLIP_DECAY_FACTOR = 0.998
     CPC_HIDDEN_DIM = 96
-    POSITION_ENC_DIM = CPC_HIDDEN_DIM//3
+    ADVANTAGE_ENC_DIM = CPC_HIDDEN_DIM//3
     INPUT_ENC_DIM = 32
 
     def __init__(self,
@@ -39,7 +39,8 @@ class LacieAlgo(BaseAlgo):
                  state_to_input_seq=None,
                  expert=None,
                  il_coef=1,
-                 num_cpc_steps=10):
+                 num_cpc_steps=10,
+                 cpc_lr=0.001):
         super().__init__(actor_critic, lr, value_coef, entropy_coef, expert, il_coef)
         self.regularize_coef = regularize_coef
         self.state_to_input_seq = state_to_input_seq
@@ -49,7 +50,7 @@ class LacieAlgo(BaseAlgo):
 
         # encoder for advantages
         self.advantage_encoder = nn.Sequential(
-            nn.Linear(self.POSITION_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
+            nn.Linear(self.ADVANTAGE_ENC_DIM, self.CPC_HIDDEN_DIM//3, bias=True),
             nn.LeakyReLU(inplace=True),
             nn.Linear(self.CPC_HIDDEN_DIM//3,
                       self.CPC_HIDDEN_DIM//3, bias=True)
@@ -85,7 +86,7 @@ class LacieAlgo(BaseAlgo):
             self.INPUT_ENC_DIM, self.CPC_HIDDEN_DIM, 1).to(self.device)
 
         # optimizer to learn the parameters for cpc loss
-        self.cpc_optimizer = optim.RMSprop(
+        self.cpc_optimizer = optim.Adam(
             chain(
                 self.advantage_encoder.parameters(),
                 self.input_seq_encoder.parameters(),
@@ -93,7 +94,7 @@ class LacieAlgo(BaseAlgo):
                 self.action_encoder.parameters(),
                 self.condition_encoder.parameters()
             ),
-            lr=lr
+            lr=cpc_lr
         )
 
         self.softmax = nn.Softmax(dim=-1)
@@ -194,7 +195,7 @@ class LacieAlgo(BaseAlgo):
         # encode
         # n_steps  x n_process x hidden_dim/2
         advantages = advantages.reshape(-1, 1)
-        advantages = self.encode_fourier_features(advantages, self.POSITION_ENC_DIM)
+        advantages = self.encode_fourier_features(advantages, self.ADVANTAGE_ENC_DIM)
         advantages = self.advantage_encoder(advantages).reshape(num_steps, n_processes, -1)
 
         return advantages

@@ -1,18 +1,4 @@
-<p align="center">
-<img src="assets/logo.png" width="300"/>
-<br>
-<a href="https://github.com/lehduong/Job-Scheduling-with-Reinforcement-Learning/blob/master/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/lehduong/Job-Scheduling-with-Reinforcement-Learning">
-</a>
-<img alt="python" src="https://img.shields.io/badge/python-%3E%3D3.6-blue">
-<img alt="tensorflow" src="https://img.shields.io/badge/tensorflow-%3E%3D2.2.0-orange">
-<img alt="ubuntu" src="https://img.shields.io/badge/ubuntu-%3E%3D18.04-yellowgreen">
-</p>
-</h1>
-
-<p align="center">
 Learning to Assign Credit in Input-driven Environment (LACIE) reduce the variance of estimation of advantages value in noisy MDP with hindsight distribution.
-</p>
 
 ## Input-driven MDP
 Input-driven MDP are the Markov processes governed by not only agent's actions but also stochastic, exogenous input processes [1]. These environments have high variance inheritantly making it hard to learn optimal policy.
@@ -59,6 +45,13 @@ pip install -e .
 
 ## Run experiments
 See `scripts` for examples.
+
+## Results:
+**Reward** of A2C+Lacie (yellow) vs A2C (blue)
+![reward](assets/reward.svg)
+
+**Value loss** of A2C+Lacie (yellow) vs A2C (blue) during training:
+![train-value-loss](assets/train_value_loss.svg)
 
 ## Reference
 

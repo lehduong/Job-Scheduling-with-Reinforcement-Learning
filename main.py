@@ -143,7 +143,8 @@ def main():
             max_grad_norm=args.max_grad_norm,
             expert=expert,
             il_coef=args.il_coef,
-            num_cpc_steps=args.lacie_num_iter
+            num_cpc_steps=args.lacie_num_iter,
+            cpc_lr=args.cpc_lr
         )
     elif args.algo == 'lacie_a2c_memory':
         lacie_buffer = LacieStorage(args.num_steps,
@@ -167,7 +168,8 @@ def main():
             num_cpc_steps=args.lacie_num_iter,
             lacie_batch_size=args.lacie_batch_size,
             lacie_buffer=lacie_buffer,
-            use_memory_to_pred_weights=args.use_memory_to_pred_weights
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights,
+            cpc_lr=args.cpc_lr
         )
     elif args.algo == 'lacie_ppo':
         agent = algorithms.LACIE_PPO(
@@ -182,7 +184,8 @@ def main():
             eps=args.eps,
             max_grad_norm=args.max_grad_norm,
             expert=expert,
-            il_coef=args.il_coef)
+            il_coef=args.il_coef,
+            cpc_lr=args.cpc_lr)
     elif args.algo == 'lacie_ppo_memory':
         lacie_buffer = LacieStorage(args.num_steps,
                                     envs.observation_space.shape,
@@ -207,7 +210,8 @@ def main():
             num_cpc_steps=args.lacie_num_iter,
             lacie_batch_size=args.lacie_batch_size,
             lacie_buffer=lacie_buffer,
-            use_memory_to_pred_weights=args.use_memory_to_pred_weights
+            use_memory_to_pred_weights=args.use_memory_to_pred_weights,
+            cpc_lr=args.cpc_lr
         )
     else:
         raise ValueError("Not Implemented algorithm...")
@@ -271,7 +275,7 @@ def main():
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
             if args.algo.startswith('lacie'):
                 cur_lr = utils.update_linear_schedule(
-                    agent.cpc_optimizer, j, num_updates, args.lr
+                    agent.cpc_optimizer, j, num_updates, args.cpc_lr
                 )
         else:
             cur_lr = agent.optimizer.param_groups[0]["lr"]
